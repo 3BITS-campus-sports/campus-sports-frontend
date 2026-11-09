@@ -1,1039 +1,1101 @@
-import React, { useState, useEffect } from 'react';
-
-// Date facilități sportive cu imagini vectoriale/stilistice
-const facilitiesData = [
-  {
-    id: 1,
-    name: 'Bazin Olimpic Universitar',
-    nameEn: 'University Olympic Pool',
-    sportType: 'Natație / Înot',
-    sportTypeEn: 'Swimming',
-    category: 'indoor',
-    capacityTotal: 30,
-    spotsLeft: 14,
-    priceRon: 25.0,
-    priceEur: 5.0,
-    opensAt: '06:00',
-    closesAt: '21:00',
-    slotMinutes: 60,
-    earlyDiscountPercent: 10,
-    location: 'Baza Sportivă Corp E',
-    contactPhone: '0230-216-147 int. 12',
-    bgGradient: 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)',
-    icon: '🏊‍♂️',
-    badge: 'Piscină & Saună',
-    badgeEn: 'Pool & Sauna',
-    badgeColor: 'badge-blue',
-    equipmentText: 'Închiriază ochelari & cască natație (+10 RON)',
-    equipmentTextEn: 'Rent swimming goggles & cap (+2 EUR)'
-  },
-  {
-    id: 2,
-    name: 'Teren Sintetic Fotbal Nocturnă',
-    nameEn: 'Synthetic Football Pitch',
-    sportType: 'Fotbal',
-    sportTypeEn: 'Football',
-    category: 'outdoor',
-    capacityTotal: 22,
-    spotsLeft: 8,
-    priceRon: 40.0,
-    priceEur: 8.0,
-    opensAt: '08:00',
-    closesAt: '22:00',
-    slotMinutes: 90,
-    earlyDiscountPercent: 0,
-    location: 'Campus 2 - Baza Sportivă Nord',
-    contactPhone: '0230-216-147 int. 15',
-    bgGradient: 'linear-gradient(135deg, #15803D 0%, #166534 100%)',
-    icon: '⚽',
-    badge: 'Nocturnă LED inclusă',
-    badgeEn: 'LED Floodlights included',
-    badgeColor: 'badge-green',
-    equipmentText: 'Închiriază minge oficială & veste (+15 RON)',
-    equipmentTextEn: 'Rent official ball & vests (+3 EUR)'
-  },
-  {
-    id: 3,
-    name: 'Sală Fitness & Cardio Matrix',
-    nameEn: 'Matrix Fitness & Cardio Gym',
-    sportType: 'Fitness / Culturism',
-    sportTypeEn: 'Fitness & Gym',
-    category: 'indoor',
-    capacityTotal: 25,
-    spotsLeft: 19,
-    priceRon: 15.0,
-    priceEur: 3.0,
-    opensAt: '07:00',
-    closesAt: '22:00',
-    slotMinutes: 60,
-    earlyDiscountPercent: 0,
-    location: 'Corp D - Demisol',
-    contactPhone: '0230-216-147 int. 18',
-    bgGradient: 'linear-gradient(135deg, #C2410C 0%, #9A3412 100%)',
-    icon: '🏋️‍♂️',
-    badge: 'Aparate Profesionale',
-    badgeEn: 'Pro Matrix Equipment',
-    badgeColor: 'badge-orange',
-    equipmentText: 'Prosop sală & centură forță (+8 RON)',
-    equipmentTextEn: 'Gym towel & lifting belt (+1.5 EUR)'
-  },
-  {
-    id: 4,
-    name: 'Teren Polivalent Baschet & Volei',
-    nameEn: 'Multisport Basketball & Volleyball',
-    sportType: 'Baschet / Volei',
-    sportTypeEn: 'Basketball / Volleyball',
-    category: 'outdoor',
-    capacityTotal: 16,
-    spotsLeft: 11,
-    priceRon: 20.0,
-    priceEur: 4.0,
-    opensAt: '09:00',
-    closesAt: '20:00',
-    slotMinutes: 60,
-    earlyDiscountPercent: 5,
-    location: 'Campus 1 - Zona Cămine',
-    contactPhone: '0230-216-147 int. 20',
-    bgGradient: 'linear-gradient(135deg, #7E22CE 0%, #6B21A8 100%)',
-    icon: '🏀',
-    badge: 'Suprafață Tartan',
-    badgeEn: 'Tartan Flooring',
-    badgeColor: 'badge-blue',
-    equipmentText: 'Minge baschet Wilson (+10 RON)',
-    equipmentTextEn: 'Wilson basketball rental (+2 EUR)'
-  }
-];
+import React, { useState } from 'react';
 
 export default function App() {
-  // Stări generale
-  const [activeTab, setActiveTab] = useState('facilities'); // 'facilities' | 'map' | 'bookings' | 'account'
-  const [currency, setCurrency] = useState('RON'); // 'RON' | 'EUR'
+  // Ecranul activ curent:
+  // 'auth' | 'register' | 'facilities' | 'facility_detail' | 'choose_datetime' | 
+  // 'summary_payment' | 'confirmed_ticket' | 'my_bookings' | 'map'
+  const [currentScreen, setCurrentScreen] = useState('facilities');
+  
+  // Setări globale
   const [lang, setLang] = useState('ro'); // 'ro' | 'en'
+  const [currency, setCurrency] = useState('RON'); // 'RON' | 'EUR'
   const [darkMode, setDarkMode] = useState(false);
-  const [currentTime, setCurrentTime] = useState('');
   
-  // Utilizator & Roluri (Student: -50%, Profesor: -30%, Amator: 0%)
-  const [userRole, setUserRole] = useState('STUDENT');
-  const [userProfile, setUserProfile] = useState({
-    name: 'Cosmin Gabriel Flocea',
-    email: 'cosmin.flocea@student.usv.ro',
-    phone: '0740 123 456'
-  });
-
-  // Modale
-  const [showGuideModal, setShowGuideModal] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
+  // Utilizator curent & rol
+  const [userRole, setUserRole] = useState('STUDENT'); // 'STUDENT' (-50%), 'PROFESSOR' (-30%), 'AMATEUR' (0%)
   const [showPassword, setShowPassword] = useState(false);
-  const [showMapDetails, setShowMapDetails] = useState(null);
-  
-  // Flux de Rezervare
-  const [selectedFacility, setSelectedFacility] = useState(null);
-  const [bookingStep, setBookingStep] = useState(1); // 1: Detalii slot, 2: Plată card, 3: Bilet emis
-  const [bookingForm, setBookingForm] = useState({
-    date: '2026-11-12',
-    timeSlot: '16:00 - 17:00',
-    seats: 1,
-    rentEquipment: false,
-    sendReminder: true
-  });
-  
-  // Formular simulare card
-  const [cardForm, setCardForm] = useState({
-    number: '4111 2222 3333 4242',
-    name: 'COSMIN G FLOCEA',
-    expiry: '08/28',
-    cvv: '942'
-  });
 
-  // Lista rezervări
-  const [myBookings, setMyBookings] = useState([
+  // Filtru categorie în Facilități ('Toate', 'Înot', 'Relaxare', 'Sporturi')
+  const [activeCategory, setActiveCategory] = useState('Toate');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Facilitate selectată pentru fluxul de rezervare
+  const [selectedFacility, setSelectedFacility] = useState(null);
+
+  // Data și ora selectate în calendar
+  const [selectedDate, setSelectedDate] = useState(27); // ziua 27
+  const [selectedSlot, setSelectedSlot] = useState('16:00 - 17:00');
+  const [addEquipment, setAddEquipment] = useState(true);
+  const [reminderEnabled, setReminderEnabled] = useState(true);
+
+  // Tab în Rezervările Mele ('upcoming' | 'history')
+  const [bookingsTab, setBookingsTab] = useState('upcoming');
+
+  // Modal anulare rezervare
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [bookingToCancel, setBookingToCancel] = useState(null);
+
+  // Date facilități din Figma
+  const facilitiesList = [
     {
-      id: 201,
-      facilityId: 1,
-      facilityName: 'Bazin Olimpic Universitar',
-      date: '2026-11-15',
-      timeSlot: '10:00 - 11:00',
-      status: 'CONFIRMED',
-      totalAmount: 12.50,
-      currency: 'RON',
-      qrToken: 'QR-CSB-USV-2026-BZN-084',
-      withEquipment: true,
-      canCancelUntil: '2026-11-14 10:00'
+      id: 1,
+      name: 'Bazin',
+      nameEn: 'Swimming Pool',
+      subtitle: 'Complex sportiv - corp E, parter',
+      category: 'Înot',
+      visualBg: 'var(--bazin-bg)',
+      visualColor: 'var(--bazin-accent)',
+      icon: '≈',
+      badgeAlert: 'Rezervările se deschid la 08:00',
+      hours: 'Deschis azi: 06:00 - 21:00',
+      priceRon: 25.0,
+      priceEur: 5.0,
+      unit: '/ 1h slot',
+      usefulInfo: {
+        location: 'Complex sportiv, corp E, parter',
+        program: 'Luni - vineri, 06:00 - 21:00',
+        notice: 'Rezervările din timp beneficiază de reducere',
+        beforeVisit: [
+          'Adu echipament de înot și papuci de schimb',
+          'Respectă cu strictețe intervalul orar selectat',
+          'Prezintă codul QR de acces la turnichet'
+        ],
+        equipmentOptions: [
+          { name: 'Ochelari de înot', price: 4 },
+          { name: 'Cască de înot din silicon', price: 3 },
+          { name: 'Prosop bumbac', price: 3 }
+        ]
+      }
+    },
+    {
+      id: 2,
+      name: 'Saună',
+      nameEn: 'Sauna',
+      subtitle: 'Complex sportiv - corp E, etaj',
+      category: 'Relaxare',
+      visualBg: 'var(--sauna-bg)',
+      visualColor: 'var(--sauna-accent)',
+      icon: '♨',
+      badgeAlert: null,
+      hours: 'Deschis azi: 08:00 - 20:00',
+      priceRon: 20.0,
+      priceEur: 4.0,
+      unit: '/ 1h slot',
+      usefulInfo: {
+        location: 'Complex sportiv, corp E, etaj 1',
+        program: 'Luni - sâmbătă, 08:00 - 20:00',
+        notice: 'Accesul la saună necesită rezervare prealabilă',
+        beforeVisit: [
+          'Adu două prosoape mari pentru igienă',
+          'Consumă apă și hidratează-te înainte de sesiune',
+          'Timpul maxim recomandat este de 15 min / repriză'
+        ],
+        equipmentOptions: [
+          { name: 'Prosop mare de saună', price: 5 },
+          { name: 'Uleiuri esențiale mentol/eucalipt', price: 4 }
+        ]
+      }
+    },
+    {
+      id: 3,
+      name: 'Teren de tenis',
+      nameEn: 'Tennis Court',
+      subtitle: 'Campus - zona baza sportivă',
+      category: 'Sporturi',
+      visualBg: 'var(--tenis-bg)',
+      visualColor: 'var(--tenis-accent)',
+      icon: '🎾',
+      badgeAlert: null,
+      hours: 'Deschis azi: 08:00 - 21:00',
+      priceRon: 40.0,
+      priceEur: 8.0,
+      unit: '/ 1h slot',
+      usefulInfo: {
+        location: 'Campus 2, lângă Căminul 5',
+        program: 'Zilnic, 08:00 - 21:00 (cu nocturnă)',
+        notice: 'Nocturna se aprinde automat după ora 17:30',
+        beforeVisit: [
+          'Încălțăminte sport cu talpă non-marking',
+          'Eliberează terenul la finalul orei',
+          'Păstrează curățenia în zona băncii de rezerve'
+        ],
+        equipmentOptions: [
+          { name: 'Set 2 rachete Wilson', price: 10 },
+          { name: 'Tub 3 mingi presurizate', price: 6 }
+        ]
+      }
+    },
+    {
+      id: 4,
+      name: 'Sală de fitness',
+      nameEn: 'Fitness Gym',
+      subtitle: 'Corp D - Demisol',
+      category: 'Sporturi',
+      visualBg: '#FEE2E2',
+      visualColor: '#DC2626',
+      icon: '🏋️',
+      badgeAlert: null,
+      hours: 'Deschis azi: 07:00 - 22:00',
+      priceRon: 15.0,
+      priceEur: 3.0,
+      unit: '/ 1h slot',
+      usefulInfo: {
+        location: 'Corp D, demisol (intrare prin curte)',
+        program: 'Luni - duminică, 07:00 - 22:00',
+        notice: 'Reducere 50% aplicabilă direct pentru studenții USV',
+        beforeVisit: [
+          'Prosop obligatoriu pe aparate',
+          'Pantofi de schimb curați',
+          'Așază greutățile la loc pe stativ după utilizare'
+        ],
+        equipmentOptions: [
+          { name: 'Centură din piele pentru forță', price: 5 },
+          { name: 'Chingi haltere', price: 3 }
+        ]
+      }
+    }
+  ];
+
+  // Rezervări active
+  const [myUpcomingBookings, setMyUpcomingBookings] = useState([
+    {
+      id: 'SC-271026-001',
+      facilityName: 'Bazin - Complex sportiv',
+      dateText: 'Marți, 27 octombrie 2026',
+      timeText: '16:00 - 17:00 · 60 min',
+      totalPaidRon: '22,50',
+      totalPaidEur: '4.50',
+      status: 'Confirmată'
     }
   ]);
 
-  // Ceas LIVE
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      const options = { 
-        weekday: 'short', 
-        day: 'numeric', 
-        month: 'short', 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        second: '2-digit' 
-      };
-      setCurrentTime(now.toLocaleDateString(lang === 'ro' ? 'ro-RO' : 'en-US', options));
-    };
-    updateTime();
-    const timer = setInterval(updateTime, 1000);
-    return () => clearInterval(timer);
-  }, [lang]);
-
-  // Comutare temă Dark/Light
-  const toggleTheme = () => {
-    const newMode = !darkMode;
-    setDarkMode(newMode);
-    if (newMode) {
-      document.body.classList.add('dark');
-    } else {
-      document.body.classList.remove('dark');
+  const historyBookings = [
+    {
+      id: 'SC-201026-084',
+      facilityName: 'Saună - Complex sportiv',
+      dateText: 'Vineri, 20 octombrie 2026, 18:00 - 19:00 · 60 min',
+      totalPaidRon: '20,00',
+      status: 'Finalizată'
+    },
+    {
+      id: 'SC-121026-019',
+      facilityName: 'Teren de tenis - Campus',
+      dateText: 'Joi, 12 octombrie 2026, 16:00 - 17:00 · 60 min',
+      totalPaidRon: '40,00',
+      status: 'Finalizată'
     }
+  ];
+
+  // Comutare Dark Mode
+  const toggleDarkMode = () => {
+    setDarkMode(!darkMode);
+    document.body.classList.toggle('dark', !darkMode);
   };
 
-  // Calcul procente reducere
-  const getDiscountPercent = () => {
+  // Navigare rapidă către detalii facilitate
+  const openFacilityDetails = (facility) => {
+    setSelectedFacility(facility);
+    setCurrentScreen('facility_detail');
+  };
+
+  // Reducere rol (Student -50%, Profesor -30%, Amator 0%)
+  const getRoleDiscountPercent = () => {
     if (userRole === 'STUDENT') return 50;
     if (userRole === 'PROFESSOR') return 30;
     return 0;
   };
 
-  // Calcul total bilet
-  const calculateTotal = (facility) => {
-    if (!facility) return 0;
-    const base = currency === 'RON' ? facility.priceRon : facility.priceEur;
-    const disc = getDiscountPercent() / 100;
-    let unitPrice = base * (1 - disc);
-    
-    // Reducere rezervare din timp (Early discount)
-    if (facility.earlyDiscountPercent > 0) {
-      unitPrice -= (unitPrice * (facility.earlyDiscountPercent / 100));
-    }
-    
-    const equipCost = bookingForm.rentEquipment ? (currency === 'RON' ? 10 : 2) : 0;
-    const total = (unitPrice * bookingForm.seats) + equipCost;
-    return total.toFixed(2);
+  // Calcul preț final cu reducere
+  const calculateFinalPrice = () => {
+    if (!selectedFacility) return '22,50';
+    const base = currency === 'RON' ? selectedFacility.priceRon : selectedFacility.priceEur;
+    const discount = getRoleDiscountPercent() / 100;
+    const discountedBase = base * (1 - discount);
+    const equip = addEquipment ? (currency === 'RON' ? 10 : 2) : 0;
+    const total = discountedBase + equip;
+    return currency === 'RON' ? total.toFixed(2).replace('.', ',') : total.toFixed(2);
   };
 
-  // Finalizare plată și emitere bilet
-  const handleProcessPayment = () => {
-    const newId = Math.floor(100 + Math.random() * 900);
-    const newBooking = {
-      id: newId,
-      facilityId: selectedFacility.id,
-      facilityName: selectedFacility.name,
-      date: bookingForm.date,
-      timeSlot: bookingForm.timeSlot,
-      status: 'CONFIRMED',
-      totalAmount: calculateTotal(selectedFacility),
-      currency: currency,
-      qrToken: `QR-CSB-USV-2026-${selectedFacility.id}-${newId}`,
-      withEquipment: bookingForm.rentEquipment,
-      canCancelUntil: `${bookingForm.date} 08:00`
-    };
-
-    setMyBookings([newBooking, ...myBookings]);
-    setBookingStep(3); // ecran bilet confirmat
-  };
-
-  // Anulare rezervare (cu minim 24h înainte)
-  const handleCancelBooking = (bookingId) => {
-    if (window.confirm(lang === 'ro' ? 'Ești sigur că vrei să anulezi rezervarea? Suma va fi returnată integral.' : 'Are you sure you want to cancel? Full refund will be issued.')) {
-      setMyBookings(myBookings.filter(b => b.id !== bookingId));
-      alert(lang === 'ro' ? '✅ Rezervarea a fost anulată cu succes!' : '✅ Booking was cancelled successfully!');
-    }
+  // Confirmare anulare
+  const confirmCancel = () => {
+    setMyUpcomingBookings([]);
+    setShowCancelModal(false);
+    setCurrentScreen('my_bookings');
   };
 
   return (
-    <div className="phone-frame">
-      {/* Dynamic Notch / Camera */}
-      <div className="phone-notch">
-        <div className="phone-speaker"></div>
-        <div className="phone-camera"></div>
-      </div>
-
-      {/* Top Status Bar: Live Clock & Battery */}
-      <div className="phone-status-bar">
-        <span>🕒 {currentTime}</span>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <span>📶 5G</span>
-          <span>🔋 98%</span>
-        </div>
-      </div>
-
-      {/* Header cu Logo, Limba, Moneda și Dark Mode */}
-      <header className="app-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div className="brand-badge">CS</div>
-          <div>
-            <h1 style={{ fontSize: '15px', fontWeight: 800, lineHeight: 1.1 }}>Campus Sports</h1>
-            <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>USV · 3BITS Team</p>
+    <div className="phone-mockup">
+      {/* ================= HEADER BLEUMARIN FIGMA ================= */}
+      <header className="figma-header">
+        <div className="figma-header-top">
+          {/* Logo Brand */}
+          <div className="brand-title" onClick={() => setCurrentScreen('facilities')} style={{ cursor: 'pointer' }}>
+            <div className="brand-icon-box">S</div>
+            <span>Sport Campus</span>
           </div>
-        </div>
 
-        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-          {/* Ghid de Utilizare */}
-          <button 
-            className="btn-icon" 
-            title="Ghid de utilizare"
-            onClick={() => setShowGuideModal(true)}
-          >
-            ❓
-          </button>
-
-          {/* Selector Limbă RO / EN */}
-          <button 
-            className="btn-icon" 
-            onClick={() => setLang(lang === 'ro' ? 'en' : 'ro')}
-            title="Schimbă limba / Change language"
-          >
-            {lang === 'ro' ? '🇷🇴 RO' : '🇬🇧 EN'}
-          </button>
-
-          {/* Monedă RON / EUR */}
-          <button 
-            className="btn-icon" 
-            onClick={() => setCurrency(currency === 'RON' ? 'EUR' : 'RON')}
-            title="Conversie automată RON / EUR"
-          >
-            <b>{currency}</b>
-          </button>
-
-          {/* Dark Mode */}
-          <button 
-            className="btn-icon" 
-            onClick={toggleTheme}
-            title="Comută Mod Întunecat / Mod Luminos"
-          >
-            {darkMode ? '☀️' : '🌙'}
-          </button>
-        </div>
-      </header>
-
-      {/* Selector Rol Utilizator (Student, Profesor, Amator) */}
-      <div style={{ padding: '8px 18px', background: 'var(--bg-app)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
-          {lang === 'ro' ? 'Tarif activ:' : 'Applied role:'}
-        </span>
-        <select 
-          value={userRole} 
-          onChange={(e) => setUserRole(e.target.value)}
-          style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)', fontWeight: 700 }}
-        >
-          <option value="STUDENT">🎓 Student USV (-50%)</option>
-          <option value="PROFESSOR">👨‍🏫 Profesor USV (-30%)</option>
-          <option value="AMATEUR">👤 Public / Amator (0%)</option>
-        </select>
-      </div>
-
-      {/* Viewport Conținut */}
-      <div className="app-content">
-        
-        {/* ================= TAB 1: FACILITĂȚI SPORTIVE ================= */}
-        {activeTab === 'facilities' && !selectedFacility && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div>
-                <h2 style={{ fontSize: '16px', fontWeight: 800 }}>
-                  {lang === 'ro' ? 'Facilități Sportive' : 'Sports Facilities'}
-                </h2>
-                <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                  {lang === 'ro' ? 'Rezervă sloturi rapide fără suprapuneri' : 'Book instant slots with zero conflicts'}
-                </p>
-              </div>
+          {/* Butoane acțiune dreapta */}
+          <div className="top-pills-row">
+            {/* Pill Limba RO / EN */}
+            <div className="pill-group">
               <button 
-                onClick={() => setActiveTab('map')} 
-                style={{ fontSize: '11px', color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}
+                className={`pill-btn ${lang === 'ro' ? 'active' : ''}`}
+                onClick={() => setLang('ro')}
               >
-                🗺️ {lang === 'ro' ? 'Vezi pe hartă' : 'View on map'}
+                RO
+              </button>
+              <button 
+                className={`pill-btn ${lang === 'en' ? 'active' : ''}`}
+                onClick={() => setLang('en')}
+              >
+                EN
               </button>
             </div>
 
-            {facilitiesData.map((f) => {
-              const basePrice = currency === 'RON' ? f.priceRon : f.priceEur;
-              const discPrice = (basePrice * (1 - getDiscountPercent()/100)).toFixed(1);
+            {/* Pill Moneda RON / EUR */}
+            <div className="pill-group">
+              <button 
+                className={`pill-btn ${currency === 'RON' ? 'active' : ''}`}
+                onClick={() => setCurrency('RON')}
+              >
+                RON
+              </button>
+              <button 
+                className={`pill-btn ${currency === 'EUR' ? 'active' : ''}`}
+                onClick={() => setCurrency('EUR')}
+              >
+                EUR
+              </button>
+            </div>
 
-              return (
-                <div key={f.id} className="facility-card">
-                  {/* Banner Grafic */}
-                  <div className="facility-banner" style={{ background: f.bgGradient }}>
-                    <div className="facility-banner-overlay"></div>
-                    <div className="facility-banner-content">
-                      <div>
-                        <span style={{ fontSize: '26px' }}>{f.icon}</span>
-                        <h3 style={{ fontSize: '15px', fontWeight: 800 }}>
-                          {lang === 'ro' ? f.name : f.nameEn}
-                        </h3>
-                        <p style={{ fontSize: '11px', opacity: 0.9 }}>📍 {f.location}</p>
-                      </div>
-                      <span className={`badge ${f.badgeColor}`}>
-                        {lang === 'ro' ? f.badge : f.badgeEn}
-                      </span>
-                    </div>
-                  </div>
+            {/* Dark Mode toggle */}
+            <button 
+              className="pill-action" 
+              onClick={toggleDarkMode}
+              title="Mod întunecat / luminos"
+              style={{ padding: '4px 8px', fontSize: '11px' }}
+            >
+              {darkMode ? '☀️' : '🌙'}
+            </button>
 
-                  {/* Detalii card */}
-                  <div className="facility-body">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                        ⏰ {f.opensAt} - {f.closesAt} ({f.slotMinutes} min)
-                      </span>
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#16A34A', background: '#DCFCE7', padding: '2px 6px', borderRadius: '4px' }}>
-                        🟢 {f.spotsLeft} {lang === 'ro' ? 'locuri libere' : 'spots left'}
-                      </span>
-                    </div>
+            {/* Buton Ajutor / Contul Meu */}
+            {currentScreen === 'auth' || currentScreen === 'register' ? (
+              <button className="pill-action" onClick={() => alert('Pentru asistență contactați recepția bazei sportive USV: 0230-216-147')}>
+                Ajutor
+              </button>
+            ) : (
+              <button className="pill-action" onClick={() => setCurrentScreen('auth')}>
+                Contul meu
+              </button>
+            )}
+          </div>
+        </div>
 
-                    {/* Preț & Buton de rezervare */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-                          <span style={{ fontSize: '18px', fontWeight: 900, color: 'var(--primary)' }}>
-                            {discPrice} {currency}
-                          </span>
-                          {getDiscountPercent() > 0 && (
-                            <span style={{ fontSize: '11px', textDecoration: 'line-through', color: 'var(--text-muted)' }}>
-                              {basePrice} {currency}
-                            </span>
-                          )}
-                        </div>
-                        <p style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                          {currency === 'RON' ? `≈ ${(parseFloat(discPrice)/5).toFixed(1)} EUR` : `≈ ${(parseFloat(discPrice)*5).toFixed(0)} RON`}
-                        </p>
-                      </div>
-
-                      <button 
-                        className="btn-primary" 
-                        style={{ width: 'auto', padding: '8px 18px' }}
-                        onClick={() => { setSelectedFacility(f); setBookingStep(1); }}
-                      >
-                        {lang === 'ro' ? 'Rezervă' : 'Book'} →
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+        {/* Header Titlu Dinamic per Ecran */}
+        {currentScreen === 'auth' && (
+          <div>
+            <h2 className="figma-header-title">Autentificare</h2>
+            <p className="figma-header-desc">Intră în cont pentru a rezerva o facilitate sportivă</p>
           </div>
         )}
 
-        {/* ================= FLUX REZERVARE: PASUL 1 (Interval & Opțiuni) ================= */}
-        {selectedFacility && bookingStep === 1 && (
+        {currentScreen === 'register' && (
           <div>
-            <button 
-              onClick={() => setSelectedFacility(null)} 
-              style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '12px', fontWeight: 700, marginBottom: '12px' }}
-            >
-              ← {lang === 'ro' ? 'Înapoi la Facilități' : 'Back to Facilities'}
-            </button>
-
-            <h2 style={{ fontSize: '17px', fontWeight: 800 }}>{lang === 'ro' ? selectedFacility.name : selectedFacility.nameEn}</h2>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              📍 {selectedFacility.location} · 📞 {selectedFacility.contactPhone}
-            </p>
-
-            {/* Pas 1 din 2 Indicator */}
-            <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
-              <div style={{ flex: 1, height: '4px', background: 'var(--primary)', borderRadius: '2px' }}></div>
-              <div style={{ flex: 1, height: '4px', background: 'var(--border)', borderRadius: '2px' }}></div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
-                  📅 {lang === 'ro' ? 'Selectează data dorită:' : 'Select appointment date:'}
-                </label>
-                <input 
-                  type="date" 
-                  value={bookingForm.date}
-                  onChange={(e) => setBookingForm({ ...bookingForm, date: e.target.value })}
-                  style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)', fontSize: '13px' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
-                  ⏰ {lang === 'ro' ? 'Interval orar disponibil (fără suprapunere):' : 'Available time slot:'}
-                </label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  {['08:00 - 09:00', '10:00 - 11:00', '14:00 - 15:00', '16:00 - 17:00', '18:00 - 19:00', '20:00 - 21:00'].map((slot) => {
-                    const isSelected = bookingForm.timeSlot === slot;
-                    return (
-                      <button
-                        key={slot}
-                        type="button"
-                        onClick={() => setBookingForm({ ...bookingForm, timeSlot: slot })}
-                        style={{
-                          padding: '10px 6px',
-                          borderRadius: '8px',
-                          border: isSelected ? '2px solid var(--primary)' : '1px solid var(--border)',
-                          background: isSelected ? 'var(--primary-light)' : 'var(--bg-card)',
-                          color: isSelected ? '#065F46' : 'var(--text-main)',
-                          fontWeight: isSelected ? 800 : 500,
-                          fontSize: '12px',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {slot}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Închiriere echipament */}
-              <div style={{ background: 'var(--bg-app)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={bookingForm.rentEquipment}
-                    onChange={(e) => setBookingForm({ ...bookingForm, rentEquipment: e.target.checked })}
-                    style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }}
-                  />
-                  <div>
-                    <span style={{ fontSize: '12px', fontWeight: 700 }}>
-                      🎒 {lang === 'ro' ? selectedFacility.equipmentText : selectedFacility.equipmentTextEn}
-                    </span>
-                    <p style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                      {lang === 'ro' ? 'Echipamentul se ridică de la recepție' : 'Pick up equipment at the desk'}
-                    </p>
-                  </div>
-                </label>
-              </div>
-
-              {/* Notificare Reminder */}
-              <div style={{ background: 'var(--bg-app)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={bookingForm.sendReminder}
-                    onChange={(e) => setBookingForm({ ...bookingForm, sendReminder: e.target.checked })}
-                    style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }}
-                  />
-                  <div>
-                    <span style={{ fontSize: '12px', fontWeight: 700 }}>
-                      🔔 {lang === 'ro' ? 'Trimite reminder SMS & Email cu 2h înainte' : 'Send SMS/Email reminder 2h prior'}
-                    </span>
-                    <p style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                      {lang === 'ro' ? 'Notificare gratuită pe cosmin.flocea@student.usv.ro' : 'Free reminder alert'}
-                    </p>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            {/* Sumar cost */}
-            <div style={{ background: 'var(--bg-app)', padding: '14px', borderRadius: '12px', marginBottom: '16px', border: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px' }}>
-                <span>{lang === 'ro' ? 'Reducere rol:' : 'Discount applied:'}</span>
-                <span style={{ fontWeight: 700, color: 'var(--primary)' }}>-{getDiscountPercent()}% ({userRole})</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '15px', fontWeight: 900, paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
-                <span>{lang === 'ro' ? 'Total de achitat:' : 'Total due:'}</span>
-                <span style={{ color: 'var(--primary)' }}>{calculateTotal(selectedFacility)} {currency}</span>
-              </div>
-            </div>
-
-            <button className="btn-primary" onClick={() => setBookingStep(2)}>
-              💳 {lang === 'ro' ? 'Mergi la Plata cu Cardul' : 'Proceed to Card Payment'}
-            </button>
+            <h2 className="figma-header-title">Creare cont</h2>
+            <p className="figma-header-desc">Un singur cont Campus Sport pentru datele de student</p>
           </div>
         )}
 
-        {/* ================= FLUX REZERVARE: PASUL 2 (Simulare Plată Card) ================= */}
-        {selectedFacility && bookingStep === 2 && (
+        {currentScreen === 'facilities' && (
           <div>
-            <button 
-              onClick={() => setBookingStep(1)} 
-              style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '12px', fontWeight: 700, marginBottom: '12px' }}
-            >
-              ← {lang === 'ro' ? 'Înapoi la alegerea orarului' : 'Back to slot selection'}
-            </button>
+            <h2 className="figma-header-title">Facilități</h2>
+            <p className="figma-header-desc">Alege unde vrei să faci mișcare</p>
+          </div>
+        )}
 
-            <h2 style={{ fontSize: '17px', fontWeight: 800, marginBottom: '4px' }}>
-              🔒 {lang === 'ro' ? 'Plată Securizată Online' : 'Secure Online Payment'}
-            </h2>
-            <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Procesare 256-bit SSL · Stripe Test Gateway
-            </p>
+        {currentScreen === 'facility_detail' && selectedFacility && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button 
+                onClick={() => setCurrentScreen('facilities')}
+                style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: '14px', cursor: 'pointer' }}
+              >
+                ←
+              </button>
+              <div>
+                <h2 className="figma-header-title">{selectedFacility.name}</h2>
+                <p className="figma-header-desc">{selectedFacility.subtitle}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
-            {/* Pas 2 din 2 Indicator */}
-            <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
-              <div style={{ flex: 1, height: '4px', background: 'var(--primary)', borderRadius: '2px' }}></div>
-              <div style={{ flex: 1, height: '4px', background: 'var(--primary)', borderRadius: '2px' }}></div>
+        {currentScreen === 'choose_datetime' && selectedFacility && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button 
+                onClick={() => setCurrentScreen('facility_detail')}
+                style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: '14px', cursor: 'pointer' }}
+              >
+                ←
+              </button>
+              <div>
+                <h2 className="figma-header-title">Alege data și ora</h2>
+                <p className="figma-header-desc">{selectedFacility.name} · 60 min · {selectedFacility.priceRon} RON / 5 EUR</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {currentScreen === 'summary_payment' && selectedFacility && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button 
+                onClick={() => setCurrentScreen('choose_datetime')}
+                style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: '14px', cursor: 'pointer' }}
+              >
+                ←
+              </button>
+              <div>
+                <h2 className="figma-header-title">Rezumat și plată</h2>
+                <p className="figma-header-desc">Verifică datele rezervării înainte de a continua la plată externă</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {currentScreen === 'confirmed_ticket' && (
+          <div>
+            <h2 className="figma-header-title">Rezervare confirmată</h2>
+            <p className="figma-header-desc">Plată finalizată cu succes · Bilet electronic emis</p>
+          </div>
+        )}
+
+        {currentScreen === 'my_bookings' && (
+          <div>
+            <h2 className="figma-header-title">Rezervările mele</h2>
+            <p className="figma-header-desc">Rezervările și codurile tale de acces</p>
+          </div>
+        )}
+
+        {currentScreen === 'map' && (
+          <div>
+            <h2 className="figma-header-title">Harta Campus</h2>
+            <p className="figma-header-desc">Localizarea sălilor și a terenurilor sportive</p>
+          </div>
+        )}
+      </header>
+
+      {/* ================= CONȚINUT ECRANE ================= */}
+      <main className="figma-screen-content">
+
+        {/* ---------------- 01. AUTENTIFICARE ---------------- */}
+        {currentScreen === 'auth' && (
+          <div style={{ paddingTop: '8px' }}>
+            <div className="info-section-box">
+              <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Email</label>
+              <input 
+                type="email" 
+                defaultValue="ana.popescu@stud.usv.ro"
+                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border-light)', fontSize: '13px', background: 'var(--bg-page)', color: 'var(--text-main)', marginBottom: '14px' }}
+              />
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>Parolă</label>
+                <button 
+                  type="button" 
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{ background: 'none', border: 'none', color: '#0284C7', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  {showPassword ? 'Ascunde' : 'Arată'}
+                </button>
+              </div>
+              <input 
+                type={showPassword ? 'text' : 'password'} 
+                defaultValue="parola123!"
+                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border-light)', fontSize: '13px', background: 'var(--bg-page)', color: 'var(--text-main)', marginBottom: '8px' }}
+              />
+
+              <div style={{ textAlign: 'right', marginBottom: '16px' }}>
+                <a href="#forgot" style={{ fontSize: '11px', color: '#0284C7', textDecoration: 'none', fontWeight: 600 }}>Ai uitat parola?</a>
+              </div>
+
+              <button className="btn-figma-green" onClick={() => setCurrentScreen('facilities')}>
+                Autentifică-te →
+              </button>
             </div>
 
-            {/* Card Mockup Visual */}
-            <div style={{ background: 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)', color: 'white', padding: '18px', borderRadius: '16px', marginBottom: '18px', boxShadow: '0 8px 20px rgba(0,0,0,0.2)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '22px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '1px' }}>USV SPORTS PAY</span>
-                <span style={{ fontSize: '20px' }}>💳</span>
-              </div>
-              <p style={{ fontSize: '16px', letterSpacing: '2px', fontFamily: 'monospace', marginBottom: '18px' }}>
-                {cardForm.number}
+            <div style={{ textAlign: 'center', margin: '14px 0', fontSize: '12px', color: 'var(--text-secondary)' }}>
+              sau
+            </div>
+
+            <div className="info-section-box" style={{ textAlign: 'center' }}>
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px' }}>Nu ai încă un cont?</p>
+              <button className="btn-figma-outline" onClick={() => setCurrentScreen('register')}>
+                Creează un cont
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: '#F0F9FF', border: '1px solid #BAE6FD', padding: '12px', borderRadius: '12px', marginTop: '16px' }}>
+              <span style={{ fontSize: '16px' }}>🔒</span>
+              <p style={{ fontSize: '11px', color: '#0369A1', lineHeight: 1.3 }}>
+                Un singur cont pentru rezervări, plăți online și acces la facilități.
               </p>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
-                <div>
-                  <span style={{ opacity: 0.6, display: 'block', fontSize: '9px' }}>TITULAR CARD</span>
-                  <span>{cardForm.name}</span>
-                </div>
-                <div>
-                  <span style={{ opacity: 0.6, display: 'block', fontSize: '9px' }}>EXPIRĂ</span>
-                  <span>{cardForm.expiry}</span>
-                </div>
-              </div>
             </div>
-
-            {/* Formular Card */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
-              <div>
-                <label style={{ fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Număr Card:</label>
-                <input 
-                  type="text" 
-                  value={cardForm.number}
-                  onChange={(e) => setCardForm({ ...cardForm, number: e.target.value })}
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)', fontSize: '13px' }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Expirare (LL/AA):</label>
-                  <input 
-                    type="text" 
-                    value={cardForm.expiry}
-                    onChange={(e) => setCardForm({ ...cardForm, expiry: e.target.value })}
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)', fontSize: '13px' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>CVV / CVC:</label>
-                  <input 
-                    type="password" 
-                    maxLength={3}
-                    value={cardForm.cvv}
-                    onChange={(e) => setCardForm({ ...cardForm, cvv: e.target.value })}
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)', fontSize: '13px' }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <button className="btn-primary" onClick={handleProcessPayment}>
-              ✅ {lang === 'ro' ? `Autorizează Plata (${calculateTotal(selectedFacility)} ${currency})` : `Authorize Payment (${calculateTotal(selectedFacility)} ${currency})`}
-            </button>
           </div>
         )}
 
-        {/* ================= FLUX REZERVARE: PASUL 3 (Bilet Generat cu QR) ================= */}
-        {selectedFacility && bookingStep === 3 && (
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '42px', marginBottom: '8px' }}>🎉</div>
-            <h2 style={{ fontSize: '18px', fontWeight: 900, color: 'var(--primary)', marginBottom: '4px' }}>
-              {lang === 'ro' ? 'Rezervare Confirmată!' : 'Booking Confirmed!'}
-            </h2>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              {lang === 'ro' ? 'Biletul electronic a fost emis și trimis pe email' : 'Electronic ticket issued and emailed'}
-            </p>
+        {/* ---------------- 02. CREARE CONT ---------------- */}
+        {currentScreen === 'register' && (
+          <div style={{ paddingTop: '8px' }}>
+            <div className="info-section-box">
+              <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Nume și prenume</label>
+              <input 
+                type="text" 
+                defaultValue="Ana Popescu"
+                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border-light)', fontSize: '13px', background: 'var(--bg-page)', color: 'var(--text-main)', marginBottom: '12px' }}
+              />
 
-            {/* Bilet Electronic Verde Stilizat */}
-            <div className="ticket-wrapper">
-              <div className="ticket-cutout-left"></div>
-              <div className="ticket-cutout-right"></div>
-              
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '1px' }}>CAMPUS SPORTS USV</span>
-                <span className="badge badge-green" style={{ background: 'white', color: '#047857' }}>ACTIV</span>
+              <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Email de student</label>
+              <input 
+                type="email" 
+                defaultValue="ana.popescu@stud.usv.ro"
+                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border-light)', fontSize: '13px', background: 'var(--bg-page)', color: 'var(--text-main)', marginBottom: '12px' }}
+              />
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>Parolă</label>
+                <button 
+                  type="button" 
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{ background: 'none', border: 'none', color: '#0284C7', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  {showPassword ? 'Ascunde' : 'Arată'}
+                </button>
+              </div>
+              <input 
+                type={showPassword ? 'text' : 'password'} 
+                defaultValue="parola123!"
+                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border-light)', fontSize: '13px', background: 'var(--bg-page)', color: 'var(--text-main)', marginBottom: '14px' }}
+              />
+
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '18px' }}>
+                <input type="checkbox" defaultChecked style={{ marginTop: '2px', accentColor: 'var(--primary-green)' }} />
+                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.3 }}>
+                  Accept termenii de utilizare și prelucrarea datelor cu caracter personal
+                </label>
               </div>
 
-              <h3 style={{ fontSize: '17px', fontWeight: 900, marginTop: '8px' }}>{selectedFacility.name}</h3>
-              <p style={{ fontSize: '12px', opacity: 0.9 }}>📅 {bookingForm.date} · ⏰ {bookingForm.timeSlot}</p>
+              <button className="btn-figma-green" onClick={() => setCurrentScreen('facilities')}>
+                Creează cont →
+              </button>
+            </div>
 
-              <div className="ticket-divider"></div>
+            <div style={{ textAlign: 'center', marginTop: '14px' }}>
+              <button 
+                onClick={() => setCurrentScreen('auth')}
+                style={{ background: 'none', border: 'none', color: '#0284C7', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+              >
+                Ai deja cont? Autentifică-te
+              </button>
+            </div>
+          </div>
+        )}
 
-              {/* QR Code Matrix Graphic */}
-              <div style={{ background: 'white', padding: '12px', borderRadius: '12px', width: '160px', margin: '0 auto', boxShadow: '0 4px 15px rgba(0,0,0,0.15)' }}>
-                <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', display: 'block' }}>
-                  {/* Pattern QR realist */}
-                  <rect width="100" height="100" fill="white" />
-                  {/* Corner 1 */}
-                  <rect x="5" y="5" width="25" height="25" fill="#047857" rx="3" />
-                  <rect x="10" y="10" width="15" height="15" fill="white" />
-                  <rect x="13" y="13" width="9" height="9" fill="#047857" />
-                  {/* Corner 2 */}
-                  <rect x="70" y="5" width="25" height="25" fill="#047857" rx="3" />
-                  <rect x="75" y="10" width="15" height="15" fill="white" />
-                  <rect x="78" y="13" width="9" height="9" fill="#047857" />
-                  {/* Corner 3 */}
-                  <rect x="5" y="70" width="25" height="25" fill="#047857" rx="3" />
-                  <rect x="10" y="75" width="15" height="15" fill="white" />
-                  <rect x="13" y="78" width="9" height="9" fill="#047857" />
-                  {/* Random QR bits */}
-                  <rect x="36" y="8" width="6" height="6" fill="#047857" />
-                  <rect x="46" y="15" width="6" height="6" fill="#047857" />
-                  <rect x="56" y="8" width="6" height="6" fill="#047857" />
-                  <rect x="38" y="38" width="24" height="24" fill="#047857" rx="2" />
-                  <rect x="44" y="44" width="12" height="12" fill="white" />
-                  <rect x="48" y="48" width="4" height="4" fill="#047857" />
-                  <rect x="10" y="42" width="6" height="14" fill="#047857" />
-                  <rect x="72" y="42" width="8" height="10" fill="#047857" />
-                  <rect x="40" y="75" width="10" height="8" fill="#047857" />
-                  <rect x="75" y="75" width="15" height="15" fill="#047857" />
-                </svg>
-                <p style={{ color: '#0F172A', fontSize: '9px', fontWeight: 800, marginTop: '4px', fontFamily: 'monospace' }}>
-                  QR-CSB-{bookingForm.date.slice(5)}-{selectedFacility.id}
+        {/* ---------------- 03. FACILITĂȚI (Catalog Principal) ---------------- */}
+        {currentScreen === 'facilities' && (
+          <div>
+            {/* Search Bar */}
+            <div className="figma-search-bar">
+              <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>🔍</span>
+              <input 
+                type="text" 
+                placeholder="Caută facilitate sportivă..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>⚙️</span>
+            </div>
+
+            {/* Filter Pills */}
+            <div className="category-filter-row">
+              {['Toate', 'Înot', 'Relaxare', 'Sporturi'].map((cat) => (
+                <button
+                  key={cat}
+                  className={`cat-pill ${activeCategory === cat ? 'active' : ''}`}
+                  onClick={() => setActiveCategory(cat)}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
+              4 facilități disponibile pentru rezervare
+            </p>
+
+            {/* Lista Cardurilor de Facilități */}
+            {facilitiesList
+              .filter(f => activeCategory === 'Toate' || f.category === activeCategory)
+              .filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()))
+              .map((facility) => (
+                <div key={facility.id} className="figma-facility-card">
+                  {/* Top Colored Visual */}
+                  <div className="facility-top-visual" style={{ backgroundColor: facility.visualBg, color: facility.visualColor }}>
+                    <span className="visual-icon-symbol">{facility.icon}</span>
+                  </div>
+
+                  {/* Body */}
+                  <div className="facility-card-inner">
+                    <h3 className="facility-card-name">{facility.name}</h3>
+                    <p className="facility-card-subtitle">{facility.subtitle}</p>
+
+                    {facility.badgeAlert && (
+                      <span className="facility-badge-alert">{facility.badgeAlert}</span>
+                    )}
+
+                    <div className="facility-hours-text">
+                      <span>🕒</span>
+                      <span>{facility.hours}</span>
+                    </div>
+
+                    <div className="facility-price-row">
+                      <div>
+                        <span className="facility-price-val">
+                          {currency === 'RON' ? `${facility.priceRon} RON` : `${facility.priceEur} EUR`}
+                        </span>
+                        <span className="facility-price-unit"> {facility.unit}</span>
+                      </div>
+
+                      <button className="btn-figma-dark" onClick={() => openFacilityDetails(facility)}>
+                        Detalii →
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
+
+        {/* ---------------- 04. DETALII FACILITATE ---------------- */}
+        {currentScreen === 'facility_detail' && selectedFacility && (
+          <div>
+            <button 
+              onClick={() => setCurrentScreen('facilities')} 
+              style={{ background: 'none', border: 'none', color: '#0284C7', fontSize: '12px', fontWeight: 700, cursor: 'pointer', marginBottom: '12px' }}
+            >
+              ← Toate facilitățile
+            </button>
+
+            {/* Informații Utile */}
+            <div className="info-section-box">
+              <h4 style={{ fontSize: '13px', fontWeight: 800, marginBottom: '12px' }}>Informații utile</h4>
+              
+              <div className="info-item-row">
+                <span>📍</span>
+                <div>
+                  <span style={{ fontWeight: 700, fontSize: '12px' }}>Locație: </span>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{selectedFacility.usefulInfo.location}</span>
+                </div>
+              </div>
+
+              <div className="info-item-row">
+                <span>⏰</span>
+                <div>
+                  <span style={{ fontWeight: 700, fontSize: '12px' }}>Program: </span>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{selectedFacility.usefulInfo.program}</span>
+                </div>
+              </div>
+
+              <div className="info-item-row">
+                <span>🏷️</span>
+                <div>
+                  <span style={{ fontWeight: 700, fontSize: '12px' }}>Tarif/oră: </span>
+                  <span style={{ fontWeight: 800, fontSize: '12px' }}>{selectedFacility.priceRon} RON / 5 EUR</span>
+                  <p style={{ fontSize: '11px', color: '#16A34A', marginTop: '2px' }}>Studenții USV au 50% reducere automată</p>
+                </div>
+              </div>
+
+              <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', padding: '10px 12px', borderRadius: '10px', marginTop: '12px' }}>
+                <p style={{ fontSize: '11px', color: '#BE123C', fontWeight: 700 }}>
+                  💡 {selectedFacility.usefulInfo.notice}
                 </p>
               </div>
-
-              <p style={{ fontSize: '11px', marginTop: '12px', opacity: 0.9 }}>
-                Titular: <b>{userProfile.name}</b> ({userRole})
-              </p>
-              <p style={{ fontSize: '10px', opacity: 0.75 }}>
-                Scanează la turnichetul de acces sau la recepție
-              </p>
             </div>
 
-            <button 
-              className="btn-primary" 
-              onClick={() => { setSelectedFacility(null); setActiveTab('bookings'); }}
-            >
-              🎟️ {lang === 'ro' ? 'Vezi în Rezervările Mele' : 'View in My Bookings'}
+            {/* Înainte de vizită */}
+            <div className="info-section-box">
+              <h4 style={{ fontSize: '13px', fontWeight: 800, marginBottom: '10px' }}>Înainte de vizită</h4>
+              {selectedFacility.usefulInfo.beforeVisit.map((rule, idx) => (
+                <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                  <span style={{ color: '#16A34A', fontWeight: 800 }}>✓</span>
+                  <span>{rule}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Echipament Opțional */}
+            <div className="info-section-box">
+              <h4 style={{ fontSize: '13px', fontWeight: 800, marginBottom: '10px' }}>Echipament (opțional)</h4>
+              {selectedFacility.usefulInfo.equipmentOptions.map((eq, idx) => (
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border-light)', fontSize: '12px' }}>
+                  <span>{eq.name}</span>
+                  <span style={{ fontWeight: 700 }}>{eq.price} RON</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Contact / Ajutor box */}
+            <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-light)', padding: '12px', borderRadius: '12px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Pentru mai multe detalii:</p>
+                <p style={{ fontSize: '12px', fontWeight: 700 }}>📞 Sunați la 0230-216-147</p>
+              </div>
+              <button className="btn-figma-outline" style={{ width: 'auto', padding: '6px 12px', fontSize: '11px' }} onClick={() => alert('Asistență Recepție: L-V 08:00 - 18:00')}>
+                Ajutor ℹ️
+              </button>
+            </div>
+
+            {/* Buton Înainte */}
+            <button className="btn-figma-green" onClick={() => setCurrentScreen('choose_datetime')}>
+              Rezervă - alege data și ora →
             </button>
           </div>
         )}
 
-        {/* ================= TAB 2: HARTA INTERACTIVĂ A CAMPUSULUI ================= */}
-        {activeTab === 'map' && (
+        {/* ---------------- 05. ALEGE DATA ȘI ORA ---------------- */}
+        {currentScreen === 'choose_datetime' && selectedFacility && (
           <div>
-            <h2 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '4px' }}>
-              🗺️ {lang === 'ro' ? 'Harta Campusului Sportiv USV' : 'USV Sports Campus Map'}
-            </h2>
-            <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '14px' }}>
-              {lang === 'ro' ? 'Apasă pe o locație pentru contact și programare' : 'Tap on pins to see contact info and book'}
-            </p>
+            {/* Calendar Octombrie 2026 */}
+            <div className="calendar-card">
+              <div className="calendar-header">
+                <span>‹</span>
+                <span>Octombrie 2026</span>
+                <span>›</span>
+              </div>
 
-            {/* Canvas Hartă Interactivă SVG */}
-            <div className="map-canvas">
-              <svg viewBox="0 0 400 260" style={{ width: '100%', height: '100%' }}>
-                {/* Drumuri & Alei */}
-                <rect x="20" y="120" width="360" height="24" fill="#CBD5E1" rx="4" />
-                <rect x="180" y="20" width="26" height="220" fill="#CBD5E1" rx="4" />
+              <div className="calendar-grid">
+                {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map(day => (
+                  <div key={day} className="calendar-day-header">{day}</div>
+                ))}
                 
-                {/* Clădiri Campus USV */}
-                {/* Corp A / Rectorat */}
-                <rect x="30" y="30" width="80" height="60" fill="#94A3B8" rx="6" />
-                <text x="70" y="65" fill="white" fontSize="11" fontWeight="700" textAnchor="middle">Corp A / Rectorat</text>
+                {/* Zile mockup luna */}
+                {[...Array(4)].map((_, i) => <div key={`empty-${i}`} className="calendar-day-btn inactive"></div>)}
+                {[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31].map(d => (
+                  <button 
+                    key={d} 
+                    className={`calendar-day-btn ${selectedDate === d ? 'selected' : ''}`}
+                    onClick={() => setSelectedDate(d)}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-                {/* Corp C / Calculatoare */}
-                <rect x="240" y="30" width="100" height="60" fill="#94A3B8" rx="6" />
-                <text x="290" y="65" fill="white" fontSize="11" fontWeight="700" textAnchor="middle">Corp C (FIESC)</text>
+            <div style={{ marginBottom: '14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 800 }}>Selectat: marți, {selectedDate} octombrie 2026</span>
+              </div>
 
-                {/* Pin 1: Bazin Olimpic */}
-                <g style={{ cursor: 'pointer' }} onClick={() => setShowMapDetails(facilitiesData[0])}>
-                  <circle cx="80" cy="180" r="22" fill="#0284C7" stroke="white" strokeWidth="3" />
-                  <text x="80" y="185" fill="white" fontSize="16" textAnchor="middle">🏊‍♂️</text>
-                  <text x="80" y="215" fill="var(--text-main)" fontSize="10" fontWeight="700" textAnchor="middle">Bazin Corp E</text>
+              {/* Legendă */}
+              <div style={{ display: 'flex', gap: '12px', fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
+                <span>🟢 Liber</span>
+                <span>🟡 Ocupat</span>
+                <span>⚫ Selectat</span>
+              </div>
+
+              {/* Sloturi Orare */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div 
+                  className={`time-slot-card ${selectedSlot === '14:00 - 15:00' ? 'selected' : ''}`}
+                  onClick={() => setSelectedSlot('14:00 - 15:00')}
+                >
+                  <span style={{ fontSize: '12px', fontWeight: 800 }}>14:00 - 15:00</span>
+                  <span style={{ fontSize: '10px', opacity: 0.8 }}>🟢 Liber · 12 locuri</span>
+                </div>
+
+                <div className="time-slot-card busy">
+                  <span style={{ fontSize: '12px', fontWeight: 800 }}>15:00 - 16:00</span>
+                  <span style={{ fontSize: '10px' }}>🟡 Ocupat · 0 locuri</span>
+                </div>
+
+                <div 
+                  className={`time-slot-card ${selectedSlot === '16:00 - 17:00' ? 'selected' : ''}`}
+                  onClick={() => setSelectedSlot('16:00 - 17:00')}
+                >
+                  <span style={{ fontSize: '12px', fontWeight: 800 }}>16:00 - 17:00</span>
+                  <span style={{ fontSize: '10px', opacity: 0.8 }}>⚫ Selectat · 4/12 locuri</span>
+                </div>
+
+                <div 
+                  className={`time-slot-card ${selectedSlot === '17:00 - 18:00' ? 'selected' : ''}`}
+                  onClick={() => setSelectedSlot('17:00 - 18:00')}
+                >
+                  <span style={{ fontSize: '12px', fontWeight: 800 }}>17:00 - 18:00</span>
+                  <span style={{ fontSize: '10px', opacity: 0.8 }}>🟢 Liber · 8 locuri</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Alert hold_expires_at din schemă */}
+            <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', padding: '10px 12px', borderRadius: '10px', marginBottom: '14px' }}>
+              <p style={{ fontSize: '11px', color: '#1E40AF', lineHeight: 1.3 }}>
+                ℹ️ Selectează un interval liber. Intervalele selectate temporar sunt rezervate 10 minute pentru plată (hold_expires_at).
+              </p>
+            </div>
+
+            {/* Opțiune Echipament */}
+            <div className="info-section-box" style={{ padding: '10px 14px', marginBottom: '18px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  checked={addEquipment}
+                  onChange={(e) => setAddEquipment(e.target.checked)}
+                  style={{ width: '16px', height: '16px', accentColor: 'var(--primary-green)' }}
+                />
+                <span style={{ fontSize: '12px', fontWeight: 700 }}>Adaugă echipament (+10 RON)</span>
+              </label>
+            </div>
+
+            {/* Buton Înainte */}
+            <button className="btn-figma-green" onClick={() => setCurrentScreen('summary_payment')}>
+              Continuă către rezumat →
+            </button>
+          </div>
+        )}
+
+        {/* ---------------- 06. REZUMAT ȘI PLATĂ ---------------- */}
+        {currentScreen === 'summary_payment' && selectedFacility && (
+          <div>
+            {/* Box Rezumat */}
+            <div className="info-section-box">
+              <h3 style={{ fontSize: '15px', fontWeight: 800, marginBottom: '2px' }}>{selectedFacility.name} - Complex sportiv</h3>
+              <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '14px' }}>
+                📅 Marți, {selectedDate} octombrie 2026 · ⏰ {selectedSlot} · 60 min
+              </p>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Tarif facilitate:</span>
+                <span>{selectedFacility.priceRon} RON</span>
+              </div>
+
+              {addEquipment && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Echipament opțional:</span>
+                  <span>+10 RON</span>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0', color: '#16A34A' }}>
+                <span>Reducere student (-50%):</span>
+                <span>-{(selectedFacility.priceRon * 0.5).toFixed(2)} RON</span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: 900, borderTop: '1px solid var(--border-light)', marginTop: '10px', paddingTop: '10px' }}>
+                <span>Total:</span>
+                <span>{calculateFinalPrice()} {currency}</span>
+              </div>
+
+              <button 
+                onClick={() => setCurrentScreen('choose_datetime')}
+                style={{ background: 'none', border: 'none', color: '#0284C7', fontSize: '11px', fontWeight: 700, cursor: 'pointer', marginTop: '10px' }}
+              >
+                + Modifică datele rezervării
+              </button>
+            </div>
+
+            {/* Procesator Plată */}
+            <div className="info-section-box">
+              <h4 style={{ fontSize: '13px', fontWeight: 800, marginBottom: '10px' }}>Plată prin procesator extern</h4>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', border: '1px solid #22C55E', borderRadius: '10px', background: '#F0FDF4', marginBottom: '12px' }}>
+                <input type="radio" checked readOnly style={{ accentColor: 'var(--primary-green)' }} />
+                <span style={{ fontSize: '12px', fontWeight: 700 }}>💳 Card bancar (plată externă)</span>
+              </div>
+
+              <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '10px', borderRadius: '10px' }}>
+                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.3 }}>
+                  Vei fi redirecționat către pagina securizată a procesatorului pentru a introduce datele cardului.
+                </p>
+              </div>
+            </div>
+
+            <button className="btn-figma-green" onClick={() => setCurrentScreen('confirmed_ticket')}>
+              Confirmă și plătește · {calculateFinalPrice()} {currency} →
+            </button>
+
+            <p style={{ fontSize: '10px', color: 'var(--text-secondary)', textAlign: 'center', marginTop: '10px' }}>
+              Politica de anulare: anulare gratuită cu 24h înainte
+            </p>
+          </div>
+        )}
+
+        {/* ---------------- 07. REZERVARE CONFIRMATĂ (Bilet QR) ---------------- */}
+        {currentScreen === 'confirmed_ticket' && (
+          <div>
+            <div className="info-section-box" style={{ borderTop: '4px solid #22C55E' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 800 }}>Bazin - Complex sportiv</h3>
+              <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                📅 Marți, 27 octombrie 2026 · ⏰ 16:00 - 17:00 · 60 min
+              </p>
+              <p style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '14px' }}>
+                Total achitat: <span style={{ color: '#16A34A' }}>22,50 RON / 4.50 EUR</span>
+              </p>
+
+              {/* Cod QR Visual */}
+              <div style={{ textAlign: 'center', background: '#F8FAFC', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+                <div style={{ width: '130px', height: '130px', background: 'white', margin: '0 auto', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                  <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%' }}>
+                    <rect width="100" height="100" fill="white" />
+                    {/* Corners */}
+                    <rect x="5" y="5" width="26" height="26" fill="#0F2942" rx="3" />
+                    <rect x="10" y="10" width="16" height="16" fill="white" />
+                    <rect x="14" y="14" width="8" height="8" fill="#0F2942" />
+                    <rect x="69" y="5" width="26" height="26" fill="#0F2942" rx="3" />
+                    <rect x="74" y="10" width="16" height="16" fill="white" />
+                    <rect x="78" y="14" width="8" height="8" fill="#0F2942" />
+                    <rect x="5" y="69" width="26" height="26" fill="#0F2942" rx="3" />
+                    <rect x="10" y="74" width="16" height="16" fill="white" />
+                    <rect x="14" y="78" width="8" height="8" fill="#0F2942" />
+                    {/* Matrix Pixels */}
+                    <rect x="38" y="8" width="8" height="8" fill="#0F2942" />
+                    <rect x="52" y="12" width="10" height="6" fill="#0F2942" />
+                    <rect x="40" y="40" width="20" height="20" fill="#0F2942" rx="2" />
+                    <rect x="45" y="45" width="10" height="10" fill="white" />
+                    <rect x="48" y="48" width="4" height="4" fill="#0F2942" />
+                    <rect x="10" y="40" width="8" height="14" fill="#0F2942" />
+                    <rect x="72" y="40" width="12" height="10" fill="#0F2942" />
+                    <rect x="40" y="72" width="14" height="8" fill="#0F2942" />
+                    <rect x="70" y="70" width="16" height="16" fill="#0F2942" />
+                  </svg>
+                </div>
+                <p style={{ fontSize: '11px', fontWeight: 800, marginTop: '8px' }}>Cod de acces: SC-271026-001</p>
+                <p style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Prezintă codul la intrare în Bazinul Complexului Sportiv</p>
+              </div>
+
+              {/* Reminder Switch */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--border-light)' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700 }}>🔔 Reminder cu 1 oră înainte</span>
+                <label className="switch">
+                  <input type="checkbox" checked={reminderEnabled} onChange={(e) => setReminderEnabled(e.target.checked)} />
+                  <span className="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            {/* Cum intri la bazin */}
+            <div className="info-section-box">
+              <h4 style={{ fontSize: '13px', fontWeight: 800, marginBottom: '6px' }}>Cum intri la bazin</h4>
+              <p style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                Prezintă codul la recepție/turnichet la intrarea în complex. Accesul se permite în intervalul 15:50 - 17:05 (ora 17:00 expiră).
+              </p>
+            </div>
+
+            <button className="btn-figma-dark" style={{ width: '100%', padding: '12px', borderRadius: '12px', marginBottom: '10px' }} onClick={() => setCurrentScreen('my_bookings')}>
+              Vezi rezervările mele →
+            </button>
+
+            <button className="btn-figma-outline" style={{ marginBottom: '12px' }} onClick={() => setCurrentScreen('facilities')}>
+              Înapoi la facilități
+            </button>
+
+            <div style={{ textAlign: 'center' }}>
+              <button 
+                onClick={() => setShowCancelModal(true)}
+                style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+              >
+                Anulează rezervarea
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ---------------- 08. REZERVĂRILE MELE ---------------- */}
+        {currentScreen === 'my_bookings' && (
+          <div>
+            {/* Tabs Viitoare / Istoric */}
+            <div style={{ display: 'flex', background: 'var(--border-light)', borderRadius: '12px', padding: '3px', marginBottom: '14px' }}>
+              <button 
+                style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: 700, background: bookingsTab === 'upcoming' ? 'var(--card-bg)' : 'transparent', color: bookingsTab === 'upcoming' ? 'var(--text-main)' : 'var(--text-secondary)', cursor: 'pointer' }}
+                onClick={() => setBookingsTab('upcoming')}
+              >
+                Viitoare ({myUpcomingBookings.length})
+              </button>
+              <button 
+                style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: 700, background: bookingsTab === 'history' ? 'var(--card-bg)' : 'transparent', color: bookingsTab === 'history' ? 'var(--text-main)' : 'var(--text-secondary)', cursor: 'pointer' }}
+                onClick={() => setBookingsTab('history')}
+              >
+                Istoric (2)
+              </button>
+            </div>
+
+            {bookingsTab === 'upcoming' ? (
+              myUpcomingBookings.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 10px', color: 'var(--text-secondary)' }}>
+                  <p style={{ fontSize: '13px', marginBottom: '12px' }}>Nu ai nicio rezervare viitoare.</p>
+                  <button className="btn-figma-green" onClick={() => setCurrentScreen('facilities')}>
+                    Rezervă o facilitate
+                  </button>
+                </div>
+              ) : (
+                myUpcomingBookings.map(b => (
+                  <div key={b.id} className="info-section-box">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '11px', color: '#16A34A', fontWeight: 800 }}>● {b.status}</span>
+                      <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{b.id}</span>
+                    </div>
+
+                    <h3 style={{ fontSize: '15px', fontWeight: 800 }}>{b.facilityName}</h3>
+                    <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '4px 0 10px' }}>
+                      {b.dateText}, {b.timeText}
+                    </p>
+                    <p style={{ fontSize: '12px', fontWeight: 700, marginBottom: '14px' }}>
+                      Total: <span style={{ color: '#16A34A' }}>{b.totalPaidRon} RON / {b.totalPaidEur} EUR</span>
+                    </p>
+
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button className="btn-figma-dark" style={{ flex: 1 }} onClick={() => setCurrentScreen('confirmed_ticket')}>
+                        Vezi codul QR
+                      </button>
+                      <button 
+                        style={{ background: 'none', border: '1px solid #EF4444', color: '#EF4444', padding: '6px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+                        onClick={() => setShowCancelModal(true)}
+                      >
+                        Anulează
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )
+            ) : (
+              <div>
+                <h4 style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px' }}>Istoric finalizate</h4>
+                {historyBookings.map(h => (
+                  <div key={h.id} className="info-section-box" style={{ opacity: 0.85 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 700 }}>● {h.status}</span>
+                      <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{h.id}</span>
+                    </div>
+                    <h4 style={{ fontSize: '14px', fontWeight: 800 }}>{h.facilityName}</h4>
+                    <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{h.dateText}</p>
+                    <p style={{ fontSize: '11px', fontWeight: 700, marginTop: '6px' }}>Total achitat: {h.totalPaidRon} RON</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button className="btn-figma-outline" style={{ marginTop: '10px' }} onClick={() => setCurrentScreen('facilities')}>
+              Rezervă altă facilitate
+            </button>
+          </div>
+        )}
+
+        {/* ---------------- HARTA CAMPUSULUI ---------------- */}
+        {currentScreen === 'map' && (
+          <div>
+            <div style={{ background: '#E2E8F0', height: '240px', borderRadius: '16px', overflow: 'hidden', position: 'relative', border: '1px solid var(--border-light)', marginBottom: '14px' }}>
+              <svg viewBox="0 0 400 240" style={{ width: '100%', height: '100%' }}>
+                {/* Strazi Campus */}
+                <rect x="20" y="110" width="360" height="20" fill="#CBD5E1" rx="4" />
+                <rect x="180" y="20" width="24" height="200" fill="#CBD5E1" rx="4" />
+
+                {/* Clădiri */}
+                <rect x="30" y="30" width="80" height="50" fill="#94A3B8" rx="6" />
+                <text x="70" y="60" fill="white" fontSize="10" fontWeight="700" textAnchor="middle">Corp A / Rectorat</text>
+
+                <rect x="240" y="30" width="100" height="50" fill="#94A3B8" rx="6" />
+                <text x="290" y="60" fill="white" fontSize="10" fontWeight="700" textAnchor="middle">Corp C (FIESC)</text>
+
+                {/* Pin Bazin */}
+                <g style={{ cursor: 'pointer' }} onClick={() => openFacilityDetails(facilitiesList[0])}>
+                  <circle cx="80" cy="170" r="20" fill="#0284C7" stroke="white" strokeWidth="2" />
+                  <text x="80" y="175" fill="white" fontSize="14" textAnchor="middle">🏊‍♂️</text>
+                  <text x="80" y="205" fill="var(--text-main)" fontSize="10" fontWeight="800" textAnchor="middle">Bazin Corp E</text>
                 </g>
 
-                {/* Pin 2: Teren Fotbal */}
-                <g style={{ cursor: 'pointer' }} onClick={() => setShowMapDetails(facilitiesData[1])}>
-                  <circle cx="280" cy="180" r="22" fill="#15803D" stroke="white" strokeWidth="3" />
-                  <text x="280" y="185" fill="white" fontSize="16" textAnchor="middle">⚽</text>
-                  <text x="280" y="215" fill="var(--text-main)" fontSize="10" fontWeight="700" textAnchor="middle">Teren Gazon</text>
-                </g>
-
-                {/* Pin 3: Sală Fitness */}
-                <g style={{ cursor: 'pointer' }} onClick={() => setShowMapDetails(facilitiesData[2])}>
-                  <circle cx="140" cy="80" r="18" fill="#C2410C" stroke="white" strokeWidth="2" />
-                  <text x="140" y="85" fill="white" fontSize="13" textAnchor="middle">🏋️</text>
-                </g>
-
-                {/* Pin 4: Teren Baschet */}
-                <g style={{ cursor: 'pointer' }} onClick={() => setShowMapDetails(facilitiesData[3])}>
-                  <circle cx="340" cy="120" r="18" fill="#7E22CE" stroke="white" strokeWidth="2" />
-                  <text x="340" y="125" fill="white" fontSize="13" textAnchor="middle">🏀</text>
+                {/* Pin Teren Tenis */}
+                <g style={{ cursor: 'pointer' }} onClick={() => openFacilityDetails(facilitiesList[2])}>
+                  <circle cx="280" cy="170" r="20" fill="#16A34A" stroke="white" strokeWidth="2" />
+                  <text x="280" y="175" fill="white" fontSize="14" textAnchor="middle">🎾</text>
+                  <text x="280" y="205" fill="var(--text-main)" fontSize="10" fontWeight="800" textAnchor="middle">Teren Tenis</text>
                 </g>
               </svg>
             </div>
 
-            {/* Pop-up Detalii & Ajutor / Telefon la click pe pin */}
-            {showMapDetails ? (
-              <div style={{ marginTop: '14px', padding: '14px', borderRadius: '12px', background: 'var(--bg-card)', border: '2px solid var(--primary)', boxShadow: 'var(--card-shadow)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <h3 style={{ fontSize: '15px', fontWeight: 800 }}>{showMapDetails.name}</h3>
-                    <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>📍 {showMapDetails.location}</p>
-                    <p style={{ fontSize: '12px', marginTop: '6px', fontWeight: 600 }}>
-                      📞 {lang === 'ro' ? 'Asistență Recepție:' : 'Desk Support:'} <a href={`tel:${showMapDetails.contactPhone}`} style={{ color: 'var(--primary)', textDecoration: 'none' }}>{showMapDetails.contactPhone}</a>
-                    </p>
-                  </div>
-                  <button onClick={() => setShowMapDetails(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px' }}>✖</button>
-                </div>
-
-                <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                  <button 
-                    className="btn-primary" 
-                    onClick={() => { setSelectedFacility(showMapDetails); setBookingStep(1); setActiveTab('facilities'); }}
-                  >
-                    📅 {lang === 'ro' ? 'Rezervă la această locație' : 'Book at this location'}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div style={{ marginTop: '14px', padding: '12px', borderRadius: '10px', background: 'var(--bg-app)', border: '1px dashed var(--border)', textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)' }}>
-                💡 {lang === 'ro' ? 'Apasă pe cercurile colorate de pe hartă pentru a vedea detaliile fiecărei săli.' : 'Tap on the colored map circles to inspect facility details.'}
-              </div>
-            )}
+            <div className="info-section-box">
+              <h4 style={{ fontSize: '13px', fontWeight: 800, marginBottom: '6px' }}>Ghid localizare</h4>
+              <p style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                Toate facilitățile sunt amplasate în Campusul 1 și 2 al USV. La fiecare intrare este montat turnichet automat conectat la baza de date Campus Sports.
+              </p>
+            </div>
           </div>
         )}
 
-        {/* ================= TAB 3: BILETELE MELE & ISTORIC ================= */}
-        {activeTab === 'bookings' && (
-          <div>
-            <h2 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '4px' }}>
-              {lang === 'ro' ? 'Rezervările & Biletele Mele' : 'My Bookings & Tickets'}
-            </h2>
-            <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '14px' }}>
-              {lang === 'ro' ? 'Bilete cu cod QR valabil pentru scanare' : 'QR code tickets valid for turnstile scan'}
+      </main>
+
+      {/* ================= 09. MODAL ANULARE REZERVARE ================= */}
+      {showCancelModal && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(3px)', zIndex: 100, display: 'flex', alignItems: 'flex-end' }}>
+          <div style={{ width: '100%', background: 'var(--card-bg)', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', padding: '24px 20px', textAlign: 'center', boxShadow: '0 -10px 30px rgba(0,0,0,0.3)' }}>
+            <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: '#FEE2E2', color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', margin: '0 auto 12px' }}>
+              ⚠️
+            </div>
+            
+            <h3 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '6px' }}>Sigur dorești să anulezi rezervarea?</h3>
+            <p style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: '20px' }}>
+              Suma de <b>22,50 RON</b> va fi returnată pe card conform politicii noastre (anulare gratuită cu cel puțin 24h înainte).
             </p>
 
-            {myBookings.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 10px', color: 'var(--text-muted)' }}>
-                <span style={{ fontSize: '36px' }}>🎟️</span>
-                <p style={{ marginTop: '10px', fontSize: '13px' }}>
-                  {lang === 'ro' ? 'Nu ai nicio rezervare activă momentan.' : 'No active bookings right now.'}
-                </p>
-                <button className="btn-primary" style={{ width: 'auto', margin: '14px auto 0' }} onClick={() => setActiveTab('facilities')}>
-                  {lang === 'ro' ? 'Explorează Facilități' : 'Explore Facilities'}
-                </button>
-              </div>
-            ) : (
-              myBookings.map((b) => (
-                <div key={b.id} className="facility-card" style={{ borderLeft: '4px solid var(--primary)', padding: '14px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                    <div>
-                      <h3 style={{ fontSize: '15px', fontWeight: 800 }}>{b.facilityName}</h3>
-                      <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>📅 {b.date} · ⏰ {b.timeSlot}</p>
-                    </div>
-                    <span className="badge badge-green">CONFIRMAT</span>
-                  </div>
+            <button 
+              onClick={confirmCancel}
+              style={{ width: '100%', padding: '12px', borderRadius: '12px', background: '#EF4444', color: 'white', border: 'none', fontWeight: 800, fontSize: '13px', cursor: 'pointer', marginBottom: '8px' }}
+            >
+              Da, anulează rezervarea
+            </button>
 
-                  {b.withEquipment && (
-                    <span style={{ fontSize: '11px', background: 'var(--primary-light)', color: '#065F46', padding: '2px 8px', borderRadius: '4px', display: 'inline-block', marginBottom: '8px' }}>
-                      🎒 Echipament inclus
-                    </span>
-                  )}
-
-                  {/* Bilet QR Box */}
-                  <div style={{ background: 'var(--bg-app)', padding: '12px', borderRadius: '10px', textAlign: 'center', margin: '10px 0', border: '1px solid var(--border)' }}>
-                    <div style={{ width: '80px', height: '80px', background: 'white', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                      <span style={{ fontSize: '36px' }}>📱</span>
-                    </div>
-                    <p style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '11px', marginTop: '6px' }}>{b.qrToken}</p>
-                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                      {lang === 'ro' ? 'Prezintă codul la turnichetul de acces' : 'Present code at turnstile'}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700 }}>
-                      {lang === 'ro' ? 'Achitat:' : 'Paid:'} {b.totalAmount} {b.currency}
-                    </span>
-                    <button 
-                      onClick={() => handleCancelBooking(b.id)}
-                      style={{ background: 'none', border: '1px solid #EF4444', color: '#EF4444', padding: '5px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
-                    >
-                      {lang === 'ro' ? 'Anulează (cu 24h înainte)' : 'Cancel (24h rule)'}
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* ================= TAB 4: CONTUL MEU ================= */}
-        {activeTab === 'account' && (
-          <div>
-            <h2 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '4px' }}>
-              {lang === 'ro' ? 'Profil Utilizator USV' : 'USV User Profile'}
-            </h2>
-            <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '14px' }}>
-              {lang === 'ro' ? 'Gestionare credențiale și rol instituțional' : 'Manage account credentials and role'}
-            </p>
-
-            <div className="facility-card" style={{ padding: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '18px' }}>
-                  CF
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '15px', fontWeight: 800 }}>{userProfile.name}</h3>
-                  <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{userProfile.email}</p>
-                </div>
-              </div>
-
-              <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
-                <p style={{ fontSize: '12px', marginBottom: '6px' }}>
-                  Rol activ: <b>{userRole}</b> ({getDiscountPercent()}% reducere)
-                </p>
-                <p style={{ fontSize: '12px', marginBottom: '6px' }}>
-                  Telefon: <b>{userProfile.phone}</b>
-                </p>
-                <p style={{ fontSize: '12px', marginBottom: '10px' }}>
-                  Bază de date: <b>PostgreSQL 16 · Docker Active</b>
-                </p>
-                <button 
-                  className="btn-secondary" 
-                  style={{ width: '100%', fontSize: '12px' }}
-                  onClick={() => setShowAuthModal(true)}
-                >
-                  🔐 {lang === 'ro' ? 'Schimbă Parola / Autentificare' : 'Change Password / Login'}
-                </button>
-              </div>
-            </div>
-
-            {/* Informații Proiect */}
-            <div className="facility-card" style={{ padding: '14px' }}>
-              <h4 style={{ fontSize: '13px', fontWeight: 700, marginBottom: '6px' }}>Proiect IP · Semestrul 1</h4>
-              <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Echipa 3BITS: Cosmin Flocea, Alexandra Andrieș, Sebastian Strugar</p>
-              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Ghid Google JS Style Guide · REST Swagger v3</p>
-            </div>
-          </div>
-        )}
-
-      </div>
-
-      {/* ================= MODAL GHID DE UTILIZARE ================= */}
-      {showGuideModal && (
-        <div className="modal-overlay" onClick={() => setShowGuideModal(false)}>
-          <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 800 }}>
-                📖 {lang === 'ro' ? 'Ghid Rapid de Utilizare' : 'Quick User Guide'}
-              </h3>
-              <button onClick={() => setShowGuideModal(false)} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer' }}>✖</button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '12px', lineHeight: 1.4 }}>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <span style={{ fontSize: '18px' }}>1️⃣</span>
-                <div>
-                  <b>{lang === 'ro' ? 'Alege facilitatea sportivă' : 'Choose facility'}:</b>
-                  <p style={{ color: 'var(--text-muted)' }}>Selectează Bazinul, Terenul de fotbal, Sala fitness sau Terenul de baschet.</p>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <span style={{ fontSize: '18px' }}>2️⃣</span>
-                <div>
-                  <b>{lang === 'ro' ? 'Selectează data și ora' : 'Pick date & slot'}:</b>
-                  <p style={{ color: 'var(--text-muted)' }}>Sistemul blochează automat suprapunerile de orar în baza de date PostgreSQL.</p>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <span style={{ fontSize: '18px' }}>3️⃣</span>
-                <div>
-                  <b>{lang === 'ro' ? 'Plătește online cu cardul' : 'Pay online'}:</b>
-                  <p style={{ color: 'var(--text-muted)' }}>Tarifele includ automat reducerea instituțională (-50% studenți, -30% profesori).</p>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <span style={{ fontSize: '18px' }}>4️⃣</span>
-                <div>
-                  <b>{lang === 'ro' ? 'Scanează biletul QR la turnichet' : 'Scan QR at gate'}:</b>
-                  <p style={{ color: 'var(--text-muted)' }}>După plată primești biletul digital cu cod QR unic pentru acces.</p>
-                </div>
-              </div>
-            </div>
-
-            <button className="btn-primary" style={{ marginTop: '16px' }} onClick={() => setShowGuideModal(false)}>
-              {lang === 'ro' ? 'Am înțeles!' : 'Got it!'}
+            <button 
+              className="btn-figma-outline" 
+              onClick={() => setShowCancelModal(false)}
+            >
+              Nu, păstrează rezervarea
             </button>
           </div>
         </div>
       )}
 
-      {/* ================= MODAL LOGIN & AFISARE PAROLA ================= */}
-      {showAuthModal && (
-        <div className="modal-overlay" onClick={() => setShowAuthModal(false)}>
-          <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 800 }}>🔐 Autentificare Cont USV</h3>
-              <button onClick={() => setShowAuthModal(false)} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer' }}>✖</button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <label style={{ fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Email Instituțional USV:</label>
-                <input 
-                  type="email" 
-                  defaultValue={userProfile.email}
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)', fontSize: '12px' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Parolă:</label>
-                <div style={{ position: 'relative' }}>
-                  <input 
-                    type={showPassword ? 'text' : 'password'} 
-                    defaultValue="CampusSports2026!"
-                    style={{ width: '100%', padding: '10px 40px 10px 10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)', fontSize: '12px' }}
-                  />
-                  <button 
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px' }}
-                    title={showPassword ? 'Ascunde parola' : 'Afișează parola'}
-                  >
-                    {showPassword ? '🙈' : '👁️'}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <button className="btn-primary" style={{ marginTop: '16px' }} onClick={() => { setShowAuthModal(false); alert('Autentificat cu succes!'); }}>
-              Salvează Credențiale
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ================= BOTTOM NAVIGATION TABS ================= */}
-      <nav className="app-nav">
+      {/* ================= BOTTOM NAVIGATION TABS (FIGMA EXACT) ================= */}
+      <nav className="figma-bottom-nav">
         <button 
-          className={`nav-tab ${activeTab === 'facilities' ? 'active' : ''}`}
-          onClick={() => { setActiveTab('facilities'); setSelectedFacility(null); }}
+          className={`nav-link-btn ${currentScreen === 'facilities' || currentScreen === 'facility_detail' || currentScreen === 'choose_datetime' || currentScreen === 'summary_payment' ? 'active' : ''}`}
+          onClick={() => setCurrentScreen('facilities')}
         >
-          <span className="icon" style={{ fontSize: '18px' }}>🏟️</span>
-          <span>{lang === 'ro' ? 'Facilități' : 'Sports'}</span>
+          <span className="nav-icon">🏟️</span>
+          <span>Facilități</span>
         </button>
 
         <button 
-          className={`nav-tab ${activeTab === 'map' ? 'active' : ''}`}
-          onClick={() => { setActiveTab('map'); setSelectedFacility(null); }}
+          className={`nav-link-btn ${currentScreen === 'map' ? 'active' : ''}`}
+          onClick={() => setCurrentScreen('map')}
         >
-          <span className="icon" style={{ fontSize: '18px' }}>🗺️</span>
-          <span>{lang === 'ro' ? 'Hartă' : 'Map'}</span>
+          <span className="nav-icon">📍</span>
+          <span>Hartă</span>
         </button>
 
         <button 
-          className={`nav-tab ${activeTab === 'bookings' ? 'active' : ''}`}
-          onClick={() => { setActiveTab('bookings'); setSelectedFacility(null); }}
+          className={`nav-link-btn ${currentScreen === 'my_bookings' || currentScreen === 'confirmed_ticket' ? 'active' : ''}`}
+          onClick={() => setCurrentScreen('my_bookings')}
         >
-          <span className="icon" style={{ fontSize: '18px' }}>🎟️</span>
-          <span>{lang === 'ro' ? 'Bilete' : 'Tickets'}</span>
+          <span className="nav-icon">🎟️</span>
+          <span>Rezervările mele</span>
         </button>
 
         <button 
-          className={`nav-tab ${activeTab === 'account' ? 'active' : ''}`}
-          onClick={() => { setActiveTab('account'); setSelectedFacility(null); }}
+          className={`nav-link-btn ${currentScreen === 'auth' || currentScreen === 'register' ? 'active' : ''}`}
+          onClick={() => setCurrentScreen('auth')}
         >
-          <span className="icon" style={{ fontSize: '18px' }}>👤</span>
-          <span>{lang === 'ro' ? 'Profil' : 'Profile'}</span>
+          <span className="nav-icon">👤</span>
+          <span>Cont</span>
         </button>
       </nav>
     </div>
