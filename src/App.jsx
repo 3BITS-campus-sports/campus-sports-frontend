@@ -59,12 +59,19 @@ export default function App() {
     closes_at: '22:00:00'
   });
 
-  const [userForm, setUserForm] = useState({
+  // Formular gol pentru adăugarea unui utilizator nou (KAN-47)
+  const emptyUserForm = {
     full_name: '',
     email: '',
+    phone_number: '',
     role_type: 'STUDENT',
-    password: 'Password2026!'
-  });
+    password: ''
+  };
+  const [userForm, setUserForm] = useState(emptyUserForm);
+  // Eroarea primită de la API la salvare; se afișează în formular
+  const [userFormError, setUserFormError] = useState('');
+  // Eroarea la încărcarea listei de utilizatori; se afișează în locul tabelului
+  const [usersLoadError, setUsersLoadError] = useState('');
 
   // Date fallback inițiale (Figma)
   const fallbackFacilities = [
@@ -197,13 +204,58 @@ export default function App() {
   const fetchUsersFromBackend = async () => {
     try {
       const res = await fetch('/api/v1/users');
-      if (res.ok) {
-        const data = await res.json();
-        setDbUsers(data);
+      if (!res.ok) {
+        throw new Error(`serverul a răspuns cu ${res.status}`);
       }
+      setDbUsers(await res.json());
+      setUsersLoadError('');
     } catch (err) {
-      console.log('Eroare fetch users:', err.message);
+      setDbUsers([]);
+      setUsersLoadError('Nu s-au putut încărca utilizatorii din baza de date (' + err.message + '). Verifică dacă backend-ul este pornit.');
     }
+  };
+
+  // Extrage mesajul de eroare din răspunsul API: { error: { code, message } }
+  const readApiError = async (res) => {
+    // 409 vine de la indexul unic pe email; mesajul PostgreSQL e tehnic, așa că îl înlocuim
+    if (res.status === 409) {
+      return 'Emailul este deja folosit de alt utilizator.';
+    }
+    try {
+      const body = await res.json();
+      const message = typeof body.error === 'string' ? body.error : body.error?.message;
+      return message || `Eroare ${res.status}`;
+    } catch {
+      return `Eroare ${res.status}`;
+    }
+  };
+
+  // Deschide formularul gol, pentru adăugare
+  const openAddUserForm = () => {
+    setEditingUser(null);
+    setUserForm(emptyUserForm);
+    setUserFormError('');
+    setShowAddUserModal(true);
+  };
+
+  // Deschide formularul completat cu datele utilizatorului, pentru editare
+  const openEditUserForm = (u) => {
+    setShowAddUserModal(false);
+    setEditingUser(u);
+    setUserForm({
+      full_name: u.full_name,
+      email: u.email,
+      phone_number: u.phone_number || '',
+      role_type: u.role_type,
+      is_active: u.is_active
+    });
+    setUserFormError('');
+  };
+
+  const closeUserForm = () => {
+    setShowAddUserModal(false);
+    setEditingUser(null);
+    setUserFormError('');
   };
 
   useEffect(() => {
@@ -271,34 +323,36 @@ export default function App() {
 
   const handleSaveUser = async (e) => {
     e.preventDefault();
+    setUserFormError('');
     try {
+      let res;
       if (editingUser) {
-        // PUT /api/v1/users/:id
-        const res = await fetch(`/api/v1/users/${editingUser.user_id}`, {
+        // PUT /api/v1/users/:id - parola nu se trimite, nu se schimbă de aici
+        const { full_name, email, phone_number, role_type, is_active } = userForm;
+        res = await fetch(`/api/v1/users/${editingUser.user_id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(userForm)
+          body: JSON.stringify({ full_name, email, phone_number, role_type, is_active })
         });
-        if (res.ok) {
-          alert('✅ Utilizator actualizat cu succes în PostgreSQL!');
-          fetchUsersFromBackend();
-          setEditingUser(null);
-        }
       } else {
         // POST /api/v1/users
-        const res = await fetch('/api/v1/users', {
+        res = await fetch('/api/v1/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(userForm)
         });
-        if (res.ok) {
-          alert('✅ Utilizator adăugat cu succes în PostgreSQL!');
-          fetchUsersFromBackend();
-          setShowAddUserModal(false);
-        }
       }
+
+      // La eroare (400 date invalide, 404, 409 email folosit) formularul rămâne deschis cu mesajul primit
+      if (!res.ok) {
+        setUserFormError(await readApiError(res));
+        return;
+      }
+      alert(editingUser ? '✅ Utilizator actualizat cu succes în PostgreSQL!' : '✅ Utilizator adăugat cu succes în PostgreSQL!');
+      closeUserForm();
+      fetchUsersFromBackend();
     } catch (err) {
-      alert('Eroare conectare API: ' + err.message);
+      setUserFormError('Eroare conectare API: ' + err.message);
     }
   };
 
@@ -491,7 +545,7 @@ export default function App() {
                 className={`admin-tab-btn ${adminTab === 'users' ? 'active' : ''}`}
                 onClick={() => setAdminTab('users')}
               >
-                👥 Utilizatori ({dbUsers.length || 6})
+                👥 Utilizatori ({dbUsers.length})
               </button>
             </div>
 
@@ -595,19 +649,17 @@ export default function App() {
                   <button 
                     className="btn-sm-action" 
                     style={{ background: 'var(--primary-green)', padding: '6px 12px' }}
-                    onClick={() => {
-                      setUserForm({
-                        full_name: '',
-                        email: '',
-                        role_type: 'STUDENT',
-                        password: 'Password2026!'
-                      });
-                      setShowAddUserModal(true);
-                    }}
+                    onClick={openAddUserForm}
                   >
                     + Adaugă utilizator
                   </button>
                 </div>
+
+                {usersLoadError && (
+                  <p style={{ fontSize: '12px', fontWeight: 700, color: '#DC2626', marginBottom: '10px' }}>
+                    ⚠️ {usersLoadError}
+                  </p>
+                )}
 
                 <div className="admin-table-container">
                   <table className="admin-table">
@@ -616,24 +668,25 @@ export default function App() {
                         <th>ID</th>
                         <th>Nume</th>
                         <th>Email USV</th>
+                        <th>Telefon</th>
                         <th>Rol</th>
                         <th>Status</th>
+                        <th>Creat la</th>
                         <th>Acțiuni</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {(dbUsers.length > 0 ? dbUsers : [
-                        { user_id: 1, full_name: 'Cosmin Flocea', email: 'cosmin.flocea@student.ro', role_type: 'STUDENT', is_active: true },
-                        { user_id: 2, full_name: 'Alexandra Andrieș', email: 'alexandra.andries@student.ro', role_type: 'STUDENT', is_active: true },
-                        { user_id: 3, full_name: 'Sebastian Strugar', email: 'sebastian.strugar@student.ro', role_type: 'STUDENT', is_active: true },
-                        { user_id: 4, full_name: 'Prof. Dan Popescu', email: 'dan.popescu@univ.ro', role_type: 'PROFESSOR', is_active: true },
-                        { user_id: 5, full_name: 'Mihai Ionescu', email: 'mihai.ionescu@gmail.com', role_type: 'AMATEUR', is_active: true },
-                        { user_id: 6, full_name: 'Recepție Bază Sportivă', email: 'receptie@campussports.ro', role_type: 'RECEPTIONIST', is_active: true }
-                      ]).map((u) => (
+                      {dbUsers.length === 0 && !usersLoadError && (
+                        <tr>
+                          <td colSpan={8} style={{ textAlign: 'center' }}>Nu există utilizatori în baza de date.</td>
+                        </tr>
+                      )}
+                      {dbUsers.map((u) => (
                         <tr key={u.user_id}>
                           <td style={{ fontWeight: 800 }}>#{u.user_id}</td>
                           <td><b>{u.full_name}</b></td>
                           <td style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{u.email}</td>
+                          <td style={{ fontSize: '10px' }}>{u.phone_number || '—'}</td>
                           <td>
                             <span style={{ fontWeight: 800, color: u.role_type === 'STUDENT' ? '#0284C7' : (u.role_type === 'PROFESSOR' ? '#7C3AED' : '#059669') }}>
                               {u.role_type}
@@ -644,18 +697,13 @@ export default function App() {
                               {u.is_active ? 'ACTIV' : 'INACTIV'}
                             </span>
                           </td>
+                          <td style={{ fontSize: '10px' }}>
+                            {u.created_at ? new Date(u.created_at).toLocaleDateString('ro-RO') : '—'}
+                          </td>
                           <td>
-                            <button 
+                            <button
                               className="btn-sm-action"
-                              onClick={() => {
-                                setEditingUser(u);
-                                setUserForm({
-                                  full_name: u.full_name,
-                                  email: u.email,
-                                  role_type: u.role_type,
-                                  is_active: u.is_active
-                                });
-                              }}
+                              onClick={() => openEditUserForm(u)}
                             >
                               Editează
                             </button>
@@ -1141,13 +1189,19 @@ export default function App() {
               <h3 style={{ fontSize: '15px', fontWeight: 800 }}>
                 {editingUser ? '✏️ Actualizare Utilizator (PostgreSQL)' : '➕ Adăugare Utilizator Nou (PostgreSQL)'}
               </h3>
-              <button 
-                onClick={() => { setShowAddUserModal(false); setEditingUser(null); }}
+              <button
+                onClick={closeUserForm}
                 style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer' }}
               >
                 ✖
               </button>
             </div>
+
+            {userFormError && (
+              <p style={{ fontSize: '12px', fontWeight: 700, color: '#DC2626', marginBottom: '10px' }}>
+                ⚠️ {userFormError}
+              </p>
+            )}
 
             <form onSubmit={handleSaveUser} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div>
@@ -1162,15 +1216,40 @@ export default function App() {
                 />
               </div>
 
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Email Instituțional USV:</label>
+                <input
+                  type="email"
+                  required
+                  value={userForm.email}
+                  onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                  placeholder="ex: andrei.ionescu@student.ro"
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '12px' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Telefon (opțional):</label>
+                <input
+                  type="tel"
+                  maxLength={20}
+                  value={userForm.phone_number}
+                  onChange={(e) => setUserForm({ ...userForm, phone_number: e.target.value })}
+                  placeholder="ex: 0712345678"
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '12px' }}
+                />
+              </div>
+
               {!editingUser && (
                 <div>
-                  <label style={{ fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Email Instituțional USV:</label>
-                  <input 
-                    type="email" 
+                  <label style={{ fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Parolă inițială (minim 8 caractere):</label>
+                  <input
+                    type="password"
                     required
-                    value={userForm.email} 
-                    onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
-                    placeholder="ex: andrei.ionescu@student.ro"
+                    minLength={8}
+                    autoComplete="new-password"
+                    value={userForm.password}
+                    onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
                     style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '12px' }}
                   />
                 </div>
@@ -1187,6 +1266,7 @@ export default function App() {
                   <option value="PROFESSOR">PROFESSOR (-30% reducere)</option>
                   <option value="AMATEUR">AMATEUR (public larg)</option>
                   <option value="RECEPTIONIST">RECEPTIONIST (recepție)</option>
+                  <option value="ADMIN">ADMIN (administrator)</option>
                 </select>
               </div>
 
