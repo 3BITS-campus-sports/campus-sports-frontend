@@ -1,197 +1,999 @@
-import React, { useState } from 'react';
-
-const mockFacilities = [
-  {
-    id: 1,
-    name: 'Bazin Olimpic',
-    sportType: 'Înot',
-    category: 'indoor',
-    capacity: 30,
-    priceHourRon: 25.0,
-    priceHourEur: 5.0,
-    opensAt: '06:00',
-    closesAt: '21:00',
-    slotMinutes: 60,
-    earlyDiscount: 10,
-    badge: 'Piscină & Saună',
-    badgeColor: 'badge-blue'
-  },
-  {
-    id: 2,
-    name: 'Teren Fotbal Gazon',
-    sportType: 'Fotbal',
-    category: 'outdoor',
-    capacity: 22,
-    priceHourRon: 40.0,
-    priceHourEur: 8.0,
-    opensAt: '08:00',
-    closesAt: '22:00',
-    slotMinutes: 90,
-    earlyDiscount: 0,
-    badge: 'Nocturnă inclusă',
-    badgeColor: 'badge-green'
-  },
-  {
-    id: 3,
-    name: 'Sală Fitness & Cardio',
-    sportType: 'Fitness',
-    category: 'indoor',
-    capacity: 20,
-    priceHourRon: 15.0,
-    priceHourEur: 3.0,
-    opensAt: '07:00',
-    closesAt: '22:00',
-    slotMinutes: 60,
-    earlyDiscount: 0,
-    badge: 'Echipamente Matrix',
-    badgeColor: 'badge-blue'
-  },
-  {
-    id: 4,
-    name: 'Teren Baschet Nord',
-    sportType: 'Baschet',
-    category: 'outdoor',
-    capacity: 10,
-    priceHourRon: 20.0,
-    priceHourEur: 4.0,
-    opensAt: '09:00',
-    closesAt: '20:00',
-    slotMinutes: 60,
-    earlyDiscount: 0,
-    badge: 'Campus Nord',
-    badgeColor: 'badge-green'
-  }
-];
+import React, { useState, useEffect } from 'react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('facilities'); // 'facilities' | 'bookings' | 'account'
-  const [currency, setCurrency] = useState('RON'); // 'RON' | 'EUR'
+  // Ecranul activ curent:
+  // 'auth' | 'register' | 'facilities' | 'facility_detail' | 'choose_datetime' | 
+  // 'summary_payment' | 'confirmed_ticket' | 'my_bookings' | 'map' | 'admin'
+  const [currentScreen, setCurrentScreen] = useState('facilities');
+  
+  // Setări globale
   const [lang, setLang] = useState('ro'); // 'ro' | 'en'
+  const [currency, setCurrency] = useState('RON'); // 'RON' | 'EUR'
   const [darkMode, setDarkMode] = useState(false);
-  const [selectedFacility, setSelectedFacility] = useState(null);
+  
+  // Utilizator curent & rol
   const [userRole, setUserRole] = useState('STUDENT'); // 'STUDENT' (-50%), 'PROFESSOR' (-30%), 'AMATEUR' (0%)
-  const [myBookings, setMyBookings] = useState([
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Filtru categorie în Facilități ('Toate', 'Înot', 'Relaxare', 'Sporturi')
+  const [activeCategory, setActiveCategory] = useState('Toate');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Facilitate selectată pentru fluxul de rezervare
+  const [selectedFacility, setSelectedFacility] = useState(null);
+
+  // Data și ora selectate în calendar
+  const [selectedDate, setSelectedDate] = useState(27);
+  const [selectedSlot, setSelectedSlot] = useState('16:00 - 17:00');
+  const [addEquipment, setAddEquipment] = useState(true);
+  const [reminderEnabled, setReminderEnabled] = useState(true);
+
+  // Tab în Rezervările Mele ('upcoming' | 'history')
+  const [bookingsTab, setBookingsTab] = useState('upcoming');
+
+  // Modal anulare rezervare
+  const [showCancelModal, setShowCancelModal] = useState(false);
+
+  // ================= ADMIN STATE (KAN-42, KAN-45, KAN-47) =================
+  const [adminTab, setAdminTab] = useState('facilities'); // 'facilities' | 'users'
+  const [dbFacilities, setDbFacilities] = useState([]);
+  const [dbUsers, setDbUsers] = useState([]);
+  const [dbLocations, setDbLocations] = useState([]);
+  const [backendOnline, setBackendOnline] = useState(false);
+
+  // Modale Admin
+  const [showAddFacilityModal, setShowAddFacilityModal] = useState(false);
+  const [editingFacility, setEditingFacility] = useState(null);
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+
+  // Formulare Admin
+  const [facilityForm, setFacilityForm] = useState({
+    name: '',
+    sport_type: 'Fotbal',
+    category: 'Sporturi',
+    capacity: 10,
+    base_price_per_hour: 40.0,
+    slot_minutes: 60,
+    opens_at: '08:00:00',
+    closes_at: '22:00:00'
+  });
+
+  const [userForm, setUserForm] = useState({
+    full_name: '',
+    email: '',
+    role_type: 'STUDENT',
+    password: 'Password2026!'
+  });
+
+  // Date fallback inițiale (Figma)
+  const fallbackFacilities = [
     {
-      id: 101,
-      facilityName: 'Bazin Olimpic',
-      date: '2026-11-05',
-      time: '14:00 - 15:00',
-      status: 'CONFIRMED',
-      totalAmount: 12.5,
-      qrToken: 'QR-CSB-2026-BZN-101'
+      id: 1,
+      name: 'Teren Fotbal Sintetic Nocturnă #1',
+      nameEn: 'Synthetic Football Pitch',
+      subtitle: 'Complex sportiv - corp E',
+      category: 'Sporturi',
+      visualBg: 'var(--tenis-bg)',
+      visualColor: 'var(--tenis-accent)',
+      icon: '⚽',
+      badgeAlert: null,
+      hours: 'Deschis azi: 08:00 - 23:00',
+      priceRon: 90.0,
+      priceEur: 18.0,
+      unit: '/ 1h slot',
+      usefulInfo: {
+        location: 'Complex sportiv, corp E',
+        program: 'Luni - duminică, 08:00 - 23:00',
+        notice: 'Nocturnă LED automată inclusă',
+        beforeVisit: ['Încălțăminte sintetic/tartan', 'Respectă intervalul selectat'],
+        equipmentOptions: [{ name: 'Minge oficială', price: 10 }]
+      }
+    },
+    {
+      id: 2,
+      name: 'Teren de tenis',
+      nameEn: 'Tennis Court',
+      subtitle: 'Campus - zona baza sportivă',
+      category: 'Sporturi',
+      visualBg: 'var(--tenis-bg)',
+      visualColor: 'var(--tenis-accent)',
+      icon: '🎾',
+      badgeAlert: null,
+      hours: 'Deschis azi: 08:00 - 21:00',
+      priceRon: 40.0,
+      priceEur: 8.0,
+      unit: '/ 1h slot',
+      usefulInfo: {
+        location: 'Baza sportivă campus',
+        program: 'Zilnic, 08:00 - 21:00',
+        notice: 'Acces doar cu încălțăminte curată',
+        beforeVisit: ['Rachete proprii sau închiriate', 'Respectă durata slotului'],
+        equipmentOptions: [{ name: 'Set 2 rachete', price: 10 }]
+      }
+    },
+    {
+      id: 3,
+      name: 'Bazin',
+      nameEn: 'Swimming Pool',
+      subtitle: 'Complex sportiv - corp E, parter',
+      category: 'Înot',
+      visualBg: 'var(--bazin-bg)',
+      visualColor: 'var(--bazin-accent)',
+      icon: '≈',
+      badgeAlert: 'Rezervările se deschid la 08:00',
+      hours: 'Deschis azi: 06:00 - 21:00',
+      priceRon: 25.0,
+      priceEur: 5.0,
+      unit: '/ 1h slot',
+      usefulInfo: {
+        location: 'Complex sportiv, corp E, parter',
+        program: 'Luni - vineri, 06:00 - 21:00',
+        notice: 'Rezervările din timp beneficiază de reducere',
+        beforeVisit: ['Cască și ochelari obligatorii', 'Duș obligatoriu înainte'],
+        equipmentOptions: [{ name: 'Ochelari înot', price: 4 }, { name: 'Cască silicon', price: 3 }]
+      }
+    },
+    {
+      id: 4,
+      name: 'Sală Polivalentă & Fitness',
+      nameEn: 'Fitness Gym',
+      subtitle: 'Corp D - Demisol',
+      category: 'Sporturi',
+      visualBg: '#FEE2E2',
+      visualColor: '#DC2626',
+      icon: '🏋️',
+      badgeAlert: null,
+      hours: 'Deschis azi: 08:00 - 22:00',
+      priceRon: 30.0,
+      priceEur: 6.0,
+      unit: '/ 1h slot',
+      usefulInfo: {
+        location: 'Corp D, demisol',
+        program: 'Luni - duminică, 08:00 - 22:00',
+        notice: 'Reducere 50% pentru studenții USV',
+        beforeVisit: ['Prosop pe aparate', 'Pantofi sport de schimb'],
+        equipmentOptions: [{ name: 'Prosop sală', price: 3 }]
+      }
+    },
+    {
+      id: 5,
+      name: 'Saună',
+      nameEn: 'Sauna',
+      subtitle: 'Complex sportiv - corp E, etaj',
+      category: 'Relaxare',
+      visualBg: 'var(--sauna-bg)',
+      visualColor: 'var(--sauna-accent)',
+      icon: '♨',
+      badgeAlert: null,
+      hours: 'Deschis azi: 08:00 - 21:00',
+      priceRon: 40.0,
+      priceEur: 8.0,
+      unit: '/ 1h slot',
+      usefulInfo: {
+        location: 'Corp E, etaj',
+        program: 'Luni - sâmbătă, 08:00 - 21:00',
+        notice: 'Timp maxim recomandat: 15 min per repriză',
+        beforeVisit: ['Două prosoape mari', 'Hidratare corespunzătoare'],
+        equipmentOptions: [{ name: 'Prosop saună', price: 5 }]
+      }
+    }
+  ];
+
+  // ================= CONECTARE LA BACKEND (KAN-40, KAN-41, KAN-43) =================
+  const fetchFacilitiesFromBackend = async () => {
+    try {
+      const res = await fetch('/api/v1/facilities');
+      if (res.ok) {
+        const data = await res.json();
+        setDbFacilities(data);
+        setBackendOnline(true);
+      }
+    } catch (err) {
+      console.log('Backend offline sau rulare locala stand-alone:', err.message);
+    }
+  };
+
+  const fetchUsersFromBackend = async () => {
+    try {
+      const res = await fetch('/api/v1/users');
+      if (res.ok) {
+        const data = await res.json();
+        setDbUsers(data);
+      }
+    } catch (err) {
+      console.log('Eroare fetch users:', err.message);
+    }
+  };
+
+  useEffect(() => {
+    fetchFacilitiesFromBackend();
+    fetchUsersFromBackend();
+  }, []);
+
+  // Lista de facilități pentru catalog (ia din DB dacă backend-ul e pornit, altfel fallback)
+  const activeFacilitiesList = dbFacilities.length > 0 ? dbFacilities.map(f => ({
+    id: f.facility_id,
+    name: f.name,
+    nameEn: f.name,
+    subtitle: f.location_name || 'Baza Sportivă USV',
+    category: f.category || 'Sporturi',
+    visualBg: f.category === 'Înot' ? 'var(--bazin-bg)' : (f.category === 'Relaxare' ? 'var(--sauna-bg)' : 'var(--tenis-bg)'),
+    visualColor: f.category === 'Înot' ? 'var(--bazin-accent)' : (f.category === 'Relaxare' ? 'var(--sauna-accent)' : 'var(--tenis-accent)'),
+    icon: f.category === 'Înot' ? '≈' : (f.category === 'Relaxare' ? '♨' : (f.sport_type === 'Tenis' ? '🎾' : '⚽')),
+    badgeAlert: f.facility_id === 3 ? 'Rezervările se deschid la 08:00' : null,
+    hours: `Deschis: ${f.opens_at ? f.opens_at.slice(0, 5) : '08:00'} - ${f.closes_at ? f.closes_at.slice(0, 5) : '22:00'}`,
+    priceRon: parseFloat(f.base_price_per_hour) || 30.0,
+    priceEur: ((parseFloat(f.base_price_per_hour) || 30.0) / 5).toFixed(1),
+    unit: '/ 1h slot',
+    usefulInfo: {
+      location: `${f.location_name || 'Complex USV'} (${f.location_address || 'Suceava'})`,
+      program: `Zilnic, ${f.opens_at ? f.opens_at.slice(0, 5) : '08:00'} - ${f.closes_at ? f.closes_at.slice(0, 5) : '22:00'}`,
+      notice: 'Tarife diferențiate (Student -50%, Profesor -30%)',
+      beforeVisit: ['Echipament sportiv adecvat', 'Respectă intervalul orar rezervat'],
+      equipmentOptions: [{ name: 'Echipament sportiv complet', price: 10 }]
+    }
+  })) : fallbackFacilities;
+
+  // ================= ADMIN HANDLERS (KAN-44, KAN-46) =================
+  const handleSaveFacility = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingFacility) {
+        // PUT /api/v1/facilities/:id
+        const res = await fetch(`/api/v1/facilities/${editingFacility.facility_id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(facilityForm)
+        });
+        if (res.ok) {
+          alert('✅ Facilitate actualizată cu succes în PostgreSQL!');
+          fetchFacilitiesFromBackend();
+          setEditingFacility(null);
+        }
+      } else {
+        // POST /api/v1/facilities
+        const res = await fetch('/api/v1/facilities', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(facilityForm)
+        });
+        if (res.ok) {
+          alert('✅ Facilitate adăugată cu succes în PostgreSQL!');
+          fetchFacilitiesFromBackend();
+          setShowAddFacilityModal(false);
+        }
+      }
+    } catch (err) {
+      alert('Eroare conectare API: ' + err.message);
+    }
+  };
+
+  const handleSaveUser = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingUser) {
+        // PUT /api/v1/users/:id
+        const res = await fetch(`/api/v1/users/${editingUser.user_id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(userForm)
+        });
+        if (res.ok) {
+          alert('✅ Utilizator actualizat cu succes în PostgreSQL!');
+          fetchUsersFromBackend();
+          setEditingUser(null);
+        }
+      } else {
+        // POST /api/v1/users
+        const res = await fetch('/api/v1/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(userForm)
+        });
+        if (res.ok) {
+          alert('✅ Utilizator adăugat cu succes în PostgreSQL!');
+          fetchUsersFromBackend();
+          setShowAddUserModal(false);
+        }
+      }
+    } catch (err) {
+      alert('Eroare conectare API: ' + err.message);
+    }
+  };
+
+  // Rezervări active
+  const [myUpcomingBookings, setMyUpcomingBookings] = useState([
+    {
+      id: 'SC-271026-001',
+      facilityName: 'Bazin - Complex sportiv',
+      dateText: 'Marți, 27 octombrie 2026',
+      timeText: '16:00 - 17:00 · 60 min',
+      totalPaidRon: '22,50',
+      totalPaidEur: '4.50',
+      status: 'Confirmată'
     }
   ]);
 
-  const [bookingForm, setBookingForm] = useState({
-    date: '2026-11-06',
-    timeSlot: '10:00 - 11:00',
-    seats: 1,
-    rentEquipment: false
-  });
+  const historyBookings = [
+    {
+      id: 'SC-201026-084',
+      facilityName: 'Saună - Complex sportiv',
+      dateText: 'Vineri, 20 octombrie 2026, 18:00 - 19:00 · 60 min',
+      totalPaidRon: '20,00',
+      status: 'Finalizată'
+    },
+    {
+      id: 'SC-121026-019',
+      facilityName: 'Teren de tenis - Campus',
+      dateText: 'Joi, 12 octombrie 2026, 16:00 - 17:00 · 60 min',
+      totalPaidRon: '40,00',
+      status: 'Finalizată'
+    }
+  ];
 
-  const toggleTheme = () => {
+  // Comutare Dark Mode
+  const toggleDarkMode = () => {
     setDarkMode(!darkMode);
     document.body.classList.toggle('dark', !darkMode);
   };
 
-  const getDiscountPercent = () => {
+  const openFacilityDetails = (facility) => {
+    setSelectedFacility(facility);
+    setCurrentScreen('facility_detail');
+  };
+
+  const getRoleDiscountPercent = () => {
     if (userRole === 'STUDENT') return 50;
     if (userRole === 'PROFESSOR') return 30;
     return 0;
   };
 
-  const calculateTotal = (facility) => {
-    if (!facility) return 0;
-    const base = currency === 'RON' ? facility.priceHourRon : facility.priceHourEur;
-    const disc = getDiscountPercent() / 100;
-    const equip = bookingForm.rentEquipment ? (currency === 'RON' ? 10 : 2) : 0;
-    const total = (base * (1 - disc) * bookingForm.seats) + equip;
-    return total.toFixed(2);
-  };
-
-  const handleConfirmBooking = () => {
-    const newBooking = {
-      id: Date.now() % 10000,
-      facilityName: selectedFacility.name,
-      date: bookingForm.date,
-      time: bookingForm.timeSlot,
-      status: 'CONFIRMED',
-      totalAmount: calculateTotal(selectedFacility),
-      qrToken: `QR-CSB-${Date.now().toString(36).toUpperCase()}`
-    };
-    setMyBookings([newBooking, ...myBookings]);
-    setSelectedFacility(null);
-    setActiveTab('bookings');
+  const calculateFinalPrice = () => {
+    if (!selectedFacility) return '22,50';
+    const base = currency === 'RON' ? selectedFacility.priceRon : selectedFacility.priceEur;
+    const discount = getRoleDiscountPercent() / 100;
+    const discountedBase = base * (1 - discount);
+    const equip = addEquipment ? (currency === 'RON' ? 10 : 2) : 0;
+    const total = discountedBase + equip;
+    return currency === 'RON' ? total.toFixed(2).replace('.', ',') : total.toFixed(2);
   };
 
   return (
-    <div className={`app-container ${darkMode ? 'dark-mode' : ''}`}>
-      {/* Header */}
-      <header>
-        <div className="logo-container">
-          <div className="logo-badge">CS</div>
-          <div>
-            <h1 style={{ fontSize: '15px', fontWeight: 700 }}>Campus Sports</h1>
-            <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Echipa 3BITS · USV</p>
+    <div className="phone-mockup">
+      {/* ================= HEADER BLEUMARIN FIGMA ================= */}
+      <header className="figma-header">
+        <div className="figma-header-top">
+          <div className="brand-title" onClick={() => setCurrentScreen('facilities')} style={{ cursor: 'pointer' }}>
+            <div className="brand-icon-box">S</div>
+            <span>Sport Campus</span>
+            {backendOnline && (
+              <span style={{ fontSize: '9px', background: '#22C55E', color: 'white', padding: '1px 5px', borderRadius: '4px', fontWeight: 700 }}>
+                ● DB LIVE
+              </span>
+            )}
           </div>
-        </div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <button 
-            onClick={() => setCurrency(currency === 'RON' ? 'EUR' : 'RON')}
-            style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: '1px solid var(--border)', background: 'none', cursor: 'pointer', color: 'var(--text-primary)' }}
-          >
-            {currency}
-          </button>
-          <button 
-            onClick={toggleTheme}
-            style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: '1px solid var(--border)', background: 'none', cursor: 'pointer', color: 'var(--text-primary)' }}
-          >
-            {darkMode ? '☀️' : '🌙'}
-          </button>
-        </div>
-      </header>
 
-      {/* Main Content */}
-      <main style={{ padding: '16px 20px', flex: 1, overflowY: 'auto' }}>
-        {/* TAB 1: FACILITĂȚI SPORTIVE */}
-        {activeTab === 'facilities' && !selectedFacility && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h2 style={{ fontSize: '16px', fontWeight: 700 }}>Facilități Disponibile</h2>
-              <select 
-                value={userRole} 
-                onChange={(e) => setUserRole(e.target.value)}
-                style={{ fontSize: '11px', padding: '4px 6px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--card-bg)', color: 'var(--text-primary)' }}
-              >
-                <option value="STUDENT">Student (-50%)</option>
-                <option value="PROFESSOR">Profesor (-30%)</option>
-                <option value="AMATEUR">Public / Amator</option>
-              </select>
+          <div className="top-pills-row">
+            <div className="pill-group">
+              <button className={`pill-btn ${lang === 'ro' ? 'active' : ''}`} onClick={() => setLang('ro')}>RO</button>
+              <button className={`pill-btn ${lang === 'en' ? 'active' : ''}`} onClick={() => setLang('en')}>EN</button>
             </div>
 
-            {mockFacilities.map((f) => (
-              <div key={f.id} className="facility-card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                  <div>
-                    <h3 style={{ fontSize: '15px', fontWeight: 600 }}>{f.name}</h3>
-                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{f.sportType} · Orar: {f.opensAt} - {f.closesAt}</p>
-                  </div>
-                  <span className={`badge ${f.badgeColor}`}>{f.badge}</span>
+            <div className="pill-group">
+              <button className={`pill-btn ${currency === 'RON' ? 'active' : ''}`} onClick={() => setCurrency('RON')}>RON</button>
+              <button className={`pill-btn ${currency === 'EUR' ? 'active' : ''}`} onClick={() => setCurrency('EUR')}>EUR</button>
+            </div>
+
+            <button className="pill-action" onClick={toggleDarkMode} style={{ padding: '4px 8px', fontSize: '11px' }}>
+              {darkMode ? '☀️' : '🌙'}
+            </button>
+
+            {/* Buton Panou Admin KAN-42 */}
+            <button 
+              className={`pill-action ${currentScreen === 'admin' ? 'active' : ''}`}
+              onClick={() => { setCurrentScreen('admin'); fetchFacilitiesFromBackend(); fetchUsersFromBackend(); }}
+              style={{ background: currentScreen === 'admin' ? 'var(--primary-green)' : 'var(--pill-bg)', color: 'white', fontWeight: 800 }}
+            >
+              ⚙️ Admin
+            </button>
+          </div>
+        </div>
+
+        {/* Header Titlu Dinamic per Ecran */}
+        {currentScreen === 'facilities' && (
+          <div>
+            <h2 className="figma-header-title">Facilități</h2>
+            <p className="figma-header-desc">Alege unde vrei să faci mișcare (Date live din PostgreSQL)</p>
+          </div>
+        )}
+
+        {currentScreen === 'admin' && (
+          <div>
+            <h2 className="figma-header-title">Panou Administrare (Admin)</h2>
+            <p className="figma-header-desc">Gestionare facilități & utilizatori direct în baza de date</p>
+          </div>
+        )}
+
+        {currentScreen === 'facility_detail' && selectedFacility && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button onClick={() => setCurrentScreen('facilities')} style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: '14px', cursor: 'pointer' }}>←</button>
+              <div>
+                <h2 className="figma-header-title">{selectedFacility.name}</h2>
+                <p className="figma-header-desc">{selectedFacility.subtitle}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {currentScreen === 'choose_datetime' && selectedFacility && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button onClick={() => setCurrentScreen('facility_detail')} style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: '14px', cursor: 'pointer' }}>←</button>
+              <div>
+                <h2 className="figma-header-title">Alege data și ora</h2>
+                <p className="figma-header-desc">{selectedFacility.name} · 60 min · {selectedFacility.priceRon} RON / 5 EUR</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {currentScreen === 'summary_payment' && selectedFacility && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button onClick={() => setCurrentScreen('choose_datetime')} style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: '14px', cursor: 'pointer' }}>←</button>
+              <div>
+                <h2 className="figma-header-title">Rezumat și plată</h2>
+                <p className="figma-header-desc">Verifică datele rezervării înainte de a continua</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {currentScreen === 'confirmed_ticket' && (
+          <div>
+            <h2 className="figma-header-title">Rezervare confirmată</h2>
+            <p className="figma-header-desc">Plată finalizată cu succes · Bilet electronic emis</p>
+          </div>
+        )}
+
+        {currentScreen === 'my_bookings' && (
+          <div>
+            <h2 className="figma-header-title">Rezervările mele</h2>
+            <p className="figma-header-desc">Rezervările și codurile tale de acces</p>
+          </div>
+        )}
+
+        {currentScreen === 'map' && (
+          <div>
+            <h2 className="figma-header-title">Harta Campus</h2>
+            <p className="figma-header-desc">Localizarea sălilor și a terenurilor sportive</p>
+          </div>
+        )}
+      </header>
+
+      {/* ================= CONȚINUT ECRANE ================= */}
+      <main className="figma-screen-content">
+
+        {/* ---------------- PANOU ADMIN (KAN-42, KAN-45, KAN-47) ---------------- */}
+        {currentScreen === 'admin' && (
+          <div>
+            {/* Sub-taburi Admin: Facilitati vs Utilizatori */}
+            <div className="admin-tab-bar">
+              <button 
+                className={`admin-tab-btn ${adminTab === 'facilities' ? 'active' : ''}`}
+                onClick={() => setAdminTab('facilities')}
+              >
+                🏟️ Facilități ({dbFacilities.length || fallbackFacilities.length})
+              </button>
+              <button 
+                className={`admin-tab-btn ${adminTab === 'users' ? 'active' : ''}`}
+                onClick={() => setAdminTab('users')}
+              >
+                👥 Utilizatori ({dbUsers.length || 6})
+              </button>
+            </div>
+
+            {/* TAB ADMIN 1: FACILITĂȚI (KAN-45 de Sebastian) */}
+            {adminTab === 'facilities' && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 800 }}>Tabel Facilități (PostgreSQL)</span>
+                  <button 
+                    className="btn-sm-action" 
+                    style={{ background: 'var(--primary-green)', padding: '6px 12px' }}
+                    onClick={() => {
+                      setFacilityForm({
+                        name: '',
+                        sport_type: 'Fotbal',
+                        category: 'Sporturi',
+                        capacity: 14,
+                        base_price_per_hour: 40.0,
+                        slot_minutes: 60,
+                        opens_at: '08:00:00',
+                        closes_at: '22:00:00'
+                      });
+                      setShowAddFacilityModal(true);
+                    }}
+                  >
+                    + Adaugă facilitate
+                  </button>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
-                  <div>
-                    <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--primary)' }}>
-                      {currency === 'RON' ? `${(f.priceHourRon * (1 - getDiscountPercent()/100)).toFixed(0)} RON` : `${(f.priceHourEur * (1 - getDiscountPercent()/100)).toFixed(1)} EUR`}
-                    </span>
-                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginLeft: '4px' }}>/ slot {f.slotMinutes} min</span>
-                  </div>
+                <div className="admin-table-container">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Nume</th>
+                        <th>Sport</th>
+                        <th>Capacitate</th>
+                        <th>Preț/h</th>
+                        <th>Status</th>
+                        <th>Acțiuni</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(dbFacilities.length > 0 ? dbFacilities : fallbackFacilities.map(f => ({
+                        facility_id: f.id,
+                        name: f.name,
+                        sport_type: f.category === 'Înot' ? 'Natație' : f.category,
+                        capacity: 14,
+                        base_price_per_hour: f.priceRon,
+                        is_active: true
+                      }))).map((f) => (
+                        <tr key={f.facility_id}>
+                          <td style={{ fontWeight: 800 }}>#{f.facility_id}</td>
+                          <td><b>{f.name}</b></td>
+                          <td>{f.sport_type}</td>
+                          <td>{f.capacity} locuri</td>
+                          <td style={{ color: 'var(--primary-green)', fontWeight: 800 }}>{f.base_price_per_hour} RON</td>
+                          <td>
+                            <span className={f.is_active ? 'badge-status-active' : 'badge-status-inactive'}>
+                              {f.is_active ? 'ACTIV' : 'INACTIV'}
+                            </span>
+                          </td>
+                          <td>
+                            <button 
+                              className="btn-sm-action"
+                              onClick={() => {
+                                setEditingFacility(f);
+                                setFacilityForm({
+                                  name: f.name,
+                                  sport_type: f.sport_type || 'Fotbal',
+                                  category: f.category || 'Sporturi',
+                                  capacity: f.capacity,
+                                  base_price_per_hour: f.base_price_per_hour,
+                                  slot_minutes: f.slot_minutes || 60,
+                                  opens_at: f.opens_at || '08:00:00',
+                                  closes_at: f.closes_at || '22:00:00',
+                                  is_active: f.is_active
+                                });
+                              }}
+                            >
+                              Editează
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <p style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
+                  💡 Datele din acest tabel sunt încărcate în timp real din tabela <code>sport_facilities</code> prin API-ul REST <code>GET /api/v1/facilities</code>.
+                </p>
+              </div>
+            )}
+
+            {/* TAB ADMIN 2: UTILIZATORI (KAN-47 de Alexandra) */}
+            {adminTab === 'users' && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 800 }}>Tabel Utilizatori (PostgreSQL)</span>
                   <button 
-                    className="btn-primary" 
-                    style={{ width: 'auto', padding: '6px 14px' }}
-                    onClick={() => setSelectedFacility(f)}
+                    className="btn-sm-action" 
+                    style={{ background: 'var(--primary-green)', padding: '6px 12px' }}
+                    onClick={() => {
+                      setUserForm({
+                        full_name: '',
+                        email: '',
+                        role_type: 'STUDENT',
+                        password: 'Password2026!'
+                      });
+                      setShowAddUserModal(true);
+                    }}
                   >
-                    Rezervă
+                    + Adaugă utilizator
+                  </button>
+                </div>
+
+                <div className="admin-table-container">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Nume</th>
+                        <th>Email USV</th>
+                        <th>Rol</th>
+                        <th>Status</th>
+                        <th>Acțiuni</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(dbUsers.length > 0 ? dbUsers : [
+                        { user_id: 1, full_name: 'Cosmin Flocea', email: 'cosmin.flocea@student.ro', role_type: 'STUDENT', is_active: true },
+                        { user_id: 2, full_name: 'Alexandra Andrieș', email: 'alexandra.andries@student.ro', role_type: 'STUDENT', is_active: true },
+                        { user_id: 3, full_name: 'Sebastian Strugar', email: 'sebastian.strugar@student.ro', role_type: 'STUDENT', is_active: true },
+                        { user_id: 4, full_name: 'Prof. Dan Popescu', email: 'dan.popescu@univ.ro', role_type: 'PROFESSOR', is_active: true },
+                        { user_id: 5, full_name: 'Mihai Ionescu', email: 'mihai.ionescu@gmail.com', role_type: 'AMATEUR', is_active: true },
+                        { user_id: 6, full_name: 'Recepție Bază Sportivă', email: 'receptie@campussports.ro', role_type: 'RECEPTIONIST', is_active: true }
+                      ]).map((u) => (
+                        <tr key={u.user_id}>
+                          <td style={{ fontWeight: 800 }}>#{u.user_id}</td>
+                          <td><b>{u.full_name}</b></td>
+                          <td style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{u.email}</td>
+                          <td>
+                            <span style={{ fontWeight: 800, color: u.role_type === 'STUDENT' ? '#0284C7' : (u.role_type === 'PROFESSOR' ? '#7C3AED' : '#059669') }}>
+                              {u.role_type}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={u.is_active ? 'badge-status-active' : 'badge-status-inactive'}>
+                              {u.is_active ? 'ACTIV' : 'INACTIV'}
+                            </span>
+                          </td>
+                          <td>
+                            <button 
+                              className="btn-sm-action"
+                              onClick={() => {
+                                setEditingUser(u);
+                                setUserForm({
+                                  full_name: u.full_name,
+                                  email: u.email,
+                                  role_type: u.role_type,
+                                  is_active: u.is_active
+                                });
+                              }}
+                            >
+                              Editează
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <p style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
+                  💡 Datele din acest tabel sunt încărcate prin API-ul REST <code>GET /api/v1/users</code>, unind datele din tabelele <code>users</code> și <code>student_profiles</code>.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ---------------- 03. FACILITĂȚI (Catalog Principal) ---------------- */}
+        {currentScreen === 'facilities' && (
+          <div>
+            <div className="figma-search-bar">
+              <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>🔍</span>
+              <input 
+                type="text" 
+                placeholder="Caută facilitate sportivă..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>⚙️</span>
+            </div>
+
+            <div className="category-filter-row">
+              {['Toate', 'Înot', 'Relaxare', 'Sporturi'].map((cat) => (
+                <button
+                  key={cat}
+                  className={`cat-pill ${activeCategory === cat ? 'active' : ''}`}
+                  onClick={() => setActiveCategory(cat)}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
+              {activeFacilitiesList.length} facilități disponibile din PostgreSQL
+            </p>
+
+            {activeFacilitiesList
+              .filter(f => activeCategory === 'Toate' || f.category === activeCategory)
+              .filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()))
+              .map((facility) => (
+                <div key={facility.id} className="figma-facility-card">
+                  <div className="facility-top-visual" style={{ backgroundColor: facility.visualBg, color: facility.visualColor }}>
+                    <span className="visual-icon-symbol">{facility.icon}</span>
+                  </div>
+
+                  <div className="facility-card-inner">
+                    <h3 className="facility-card-name">{facility.name}</h3>
+                    <p className="facility-card-subtitle">{facility.subtitle}</p>
+
+                    {facility.badgeAlert && (
+                      <span className="facility-badge-alert">{facility.badgeAlert}</span>
+                    )}
+
+                    <div className="facility-hours-text">
+                      <span>🕒</span>
+                      <span>{facility.hours}</span>
+                    </div>
+
+                    <div className="facility-price-row">
+                      <div>
+                        <span className="facility-price-val">
+                          {currency === 'RON' ? `${facility.priceRon} RON` : `${facility.priceEur} EUR`}
+                        </span>
+                        <span className="facility-price-unit"> {facility.unit}</span>
+                      </div>
+
+                      <button className="btn-figma-dark" onClick={() => openFacilityDetails(facility)}>
+                        Detalii →
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
+
+        {/* ---------------- 04. DETALII FACILITATE ---------------- */}
+        {currentScreen === 'facility_detail' && selectedFacility && (
+          <div>
+            <button 
+              onClick={() => setCurrentScreen('facilities')} 
+              style={{ background: 'none', border: 'none', color: '#0284C7', fontSize: '12px', fontWeight: 700, cursor: 'pointer', marginBottom: '12px' }}
+            >
+              ← Toate facilitățile
+            </button>
+
+            <div className="info-section-box">
+              <h4 style={{ fontSize: '13px', fontWeight: 800, marginBottom: '12px' }}>Informații utile</h4>
+              
+              <div className="info-item-row">
+                <span>📍</span>
+                <div>
+                  <span style={{ fontWeight: 700, fontSize: '12px' }}>Locație: </span>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{selectedFacility.usefulInfo.location}</span>
+                </div>
+              </div>
+
+              <div className="info-item-row">
+                <span>⏰</span>
+                <div>
+                  <span style={{ fontWeight: 700, fontSize: '12px' }}>Program: </span>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{selectedFacility.usefulInfo.program}</span>
+                </div>
+              </div>
+
+              <div className="info-item-row">
+                <span>🏷️</span>
+                <div>
+                  <span style={{ fontWeight: 700, fontSize: '12px' }}>Tarif/oră: </span>
+                  <span style={{ fontWeight: 800, fontSize: '12px' }}>{selectedFacility.priceRon} RON</span>
+                  <p style={{ fontSize: '11px', color: '#16A34A', marginTop: '2px' }}>Studenții USV au 50% reducere automată</p>
+                </div>
+              </div>
+
+              <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', padding: '10px 12px', borderRadius: '10px', marginTop: '12px' }}>
+                <p style={{ fontSize: '11px', color: '#BE123C', fontWeight: 700 }}>
+                  💡 {selectedFacility.usefulInfo.notice}
+                </p>
+              </div>
+            </div>
+
+            <div className="info-section-box">
+              <h4 style={{ fontSize: '13px', fontWeight: 800, marginBottom: '10px' }}>Înainte de vizită</h4>
+              {selectedFacility.usefulInfo.beforeVisit.map((rule, idx) => (
+                <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                  <span style={{ color: '#16A34A', fontWeight: 800 }}>✓</span>
+                  <span>{rule}</span>
+                </div>
+              ))}
+            </div>
+
+            <button className="btn-figma-green" onClick={() => setCurrentScreen('choose_datetime')}>
+              Rezervă - alege data și ora →
+            </button>
+          </div>
+        )}
+
+        {/* ---------------- 05. ALEGE DATA ȘI ORA ---------------- */}
+        {currentScreen === 'choose_datetime' && selectedFacility && (
+          <div>
+            <div className="calendar-card">
+              <div className="calendar-header">
+                <span>‹</span>
+                <span>Octombrie 2026</span>
+                <span>›</span>
+              </div>
+
+              <div className="calendar-grid">
+                {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map(day => (
+                  <div key={day} className="calendar-day-header">{day}</div>
+                ))}
+                {[...Array(4)].map((_, i) => <div key={`empty-${i}`} className="calendar-day-btn inactive"></div>)}
+                {[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31].map(d => (
+                  <button 
+                    key={d} 
+                    className={`calendar-day-btn ${selectedDate === d ? 'selected' : ''}`}
+                    onClick={() => setSelectedDate(d)}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 800 }}>Selectat: marți, {selectedDate} octombrie 2026</span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div 
+                  className={`time-slot-card ${selectedSlot === '14:00 - 15:00' ? 'selected' : ''}`}
+                  onClick={() => setSelectedSlot('14:00 - 15:00')}
+                >
+                  <span style={{ fontSize: '12px', fontWeight: 800 }}>14:00 - 15:00</span>
+                  <span style={{ fontSize: '10px', opacity: 0.8 }}>🟢 Liber · 12 locuri</span>
+                </div>
+
+                <div className="time-slot-card busy">
+                  <span style={{ fontSize: '12px', fontWeight: 800 }}>15:00 - 16:00</span>
+                  <span style={{ fontSize: '10px' }}>🟡 Ocupat · 0 locuri</span>
+                </div>
+
+                <div 
+                  className={`time-slot-card ${selectedSlot === '16:00 - 17:00' ? 'selected' : ''}`}
+                  onClick={() => setSelectedSlot('16:00 - 17:00')}
+                >
+                  <span style={{ fontSize: '12px', fontWeight: 800 }}>16:00 - 17:00</span>
+                  <span style={{ fontSize: '10px', opacity: 0.8 }}>⚫ Selectat · 4/12 locuri</span>
+                </div>
+
+                <div 
+                  className={`time-slot-card ${selectedSlot === '17:00 - 18:00' ? 'selected' : ''}`}
+                  onClick={() => setSelectedSlot('17:00 - 18:00')}
+                >
+                  <span style={{ fontSize: '12px', fontWeight: 800 }}>17:00 - 18:00</span>
+                  <span style={{ fontSize: '10px', opacity: 0.8 }}>🟢 Liber · 8 locuri</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="info-section-box" style={{ padding: '10px 14px', marginBottom: '18px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  checked={addEquipment}
+                  onChange={(e) => setAddEquipment(e.target.checked)}
+                  style={{ width: '16px', height: '16px', accentColor: 'var(--primary-green)' }}
+                />
+                <span style={{ fontSize: '12px', fontWeight: 700 }}>Adaugă echipament (+10 RON)</span>
+              </label>
+            </div>
+
+            <button className="btn-figma-green" onClick={() => setCurrentScreen('summary_payment')}>
+              Continuă către rezumat →
+            </button>
+          </div>
+        )}
+
+        {/* ---------------- 06. REZUMAT ȘI PLATĂ ---------------- */}
+        {currentScreen === 'summary_payment' && selectedFacility && (
+          <div>
+            <div className="info-section-box">
+              <h3 style={{ fontSize: '15px', fontWeight: 800, marginBottom: '2px' }}>{selectedFacility.name}</h3>
+              <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '14px' }}>
+                📅 Marți, {selectedDate} octombrie 2026 · ⏰ {selectedSlot} · 60 min
+              </p>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Tarif facilitate:</span>
+                <span>{selectedFacility.priceRon} RON</span>
+              </div>
+
+              {addEquipment && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Echipament opțional:</span>
+                  <span>+10 RON</span>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0', color: '#16A34A' }}>
+                <span>Reducere student (-50%):</span>
+                <span>-{(selectedFacility.priceRon * 0.5).toFixed(2)} RON</span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: 900, borderTop: '1px solid var(--border-light)', marginTop: '10px', paddingTop: '10px' }}>
+                <span>Total:</span>
+                <span>{calculateFinalPrice()} {currency}</span>
+              </div>
+            </div>
+
+            <button className="btn-figma-green" onClick={() => setCurrentScreen('confirmed_ticket')}>
+              Confirmă și plătește · {calculateFinalPrice()} {currency} →
+            </button>
+          </div>
+        )}
+
+        {/* ---------------- 07. REZERVARE CONFIRMATĂ (Bilet QR) ---------------- */}
+        {currentScreen === 'confirmed_ticket' && (
+          <div>
+            <div className="info-section-box" style={{ borderTop: '4px solid #22C55E' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 800 }}>Bazin - Complex sportiv</h3>
+              <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                📅 Marți, 27 octombrie 2026 · ⏰ 16:00 - 17:00 · 60 min
+              </p>
+              <p style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '14px' }}>
+                Total achitat: <span style={{ color: '#16A34A' }}>22,50 RON / 4.50 EUR</span>
+              </p>
+
+              <div style={{ textAlign: 'center', background: '#F8FAFC', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+                <div style={{ width: '130px', height: '130px', background: 'white', margin: '0 auto', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                  <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%' }}>
+                    <rect width="100" height="100" fill="white" />
+                    <rect x="5" y="5" width="26" height="26" fill="#0F2942" rx="3" />
+                    <rect x="10" y="10" width="16" height="16" fill="white" />
+                    <rect x="14" y="14" width="8" height="8" fill="#0F2942" />
+                    <rect x="69" y="5" width="26" height="26" fill="#0F2942" rx="3" />
+                    <rect x="74" y="10" width="16" height="16" fill="white" />
+                    <rect x="78" y="14" width="8" height="8" fill="#0F2942" />
+                    <rect x="5" y="69" width="26" height="26" fill="#0F2942" rx="3" />
+                    <rect x="10" y="74" width="16" height="16" fill="white" />
+                    <rect x="14" y="78" width="8" height="8" fill="#0F2942" />
+                    <rect x="38" y="8" width="8" height="8" fill="#0F2942" />
+                    <rect x="40" y="40" width="20" height="20" fill="#0F2942" rx="2" />
+                  </svg>
+                </div>
+                <p style={{ fontSize: '11px', fontWeight: 800, marginTop: '8px' }}>Cod de acces: SC-271026-001</p>
+                <p style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Prezintă codul la intrare în Bazinul Complexului Sportiv</p>
+              </div>
+            </div>
+
+            <button className="btn-figma-dark" style={{ width: '100%', padding: '12px', borderRadius: '12px', marginBottom: '10px' }} onClick={() => setCurrentScreen('my_bookings')}>
+              Vezi rezervările mele →
+            </button>
+          </div>
+        )}
+
+        {/* ---------------- 08. REZERVĂRILE MELE ---------------- */}
+        {currentScreen === 'my_bookings' && (
+          <div>
+            <div style={{ display: 'flex', background: 'var(--border-light)', borderRadius: '12px', padding: '3px', marginBottom: '14px' }}>
+              <button 
+                style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: 700, background: bookingsTab === 'upcoming' ? 'var(--card-bg)' : 'transparent', color: bookingsTab === 'upcoming' ? 'var(--text-main)' : 'var(--text-secondary)', cursor: 'pointer' }}
+                onClick={() => setBookingsTab('upcoming')}
+              >
+                Viitoare ({myUpcomingBookings.length})
+              </button>
+              <button 
+                style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: 700, background: bookingsTab === 'history' ? 'var(--card-bg)' : 'transparent', color: bookingsTab === 'history' ? 'var(--text-main)' : 'var(--text-secondary)', cursor: 'pointer' }}
+                onClick={() => setBookingsTab('history')}
+              >
+                Istoric (2)
+              </button>
+            </div>
+
+            {myUpcomingBookings.map(b => (
+              <div key={b.id} className="info-section-box">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '11px', color: '#16A34A', fontWeight: 800 }}>● {b.status}</span>
+                  <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{b.id}</span>
+                </div>
+                <h3 style={{ fontSize: '15px', fontWeight: 800 }}>{b.facilityName}</h3>
+                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '4px 0 10px' }}>{b.dateText}, {b.timeText}</p>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button className="btn-figma-dark" style={{ flex: 1 }} onClick={() => setCurrentScreen('confirmed_ticket')}>
+                    Vezi codul QR
                   </button>
                 </div>
               </div>
@@ -199,138 +1001,248 @@ export default function App() {
           </div>
         )}
 
-        {/* DIALOG REZERVARE PENTRU FACILITATEA SELECTATĂ */}
-        {selectedFacility && (
+        {/* ---------------- HARTA CAMPUSULUI ---------------- */}
+        {currentScreen === 'map' && (
           <div>
-            <button 
-              onClick={() => setSelectedFacility(null)} 
-              style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '13px', marginBottom: '12px' }}
-            >
-              ← Înapoi la listă
-            </button>
-            <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '6px' }}>{selectedFacility.name}</h2>
-            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-              Tarif aplicat: <b>{userRole}</b> (reducere {getDiscountPercent()}%)
-            </p>
+            <div style={{ background: '#E2E8F0', height: '240px', borderRadius: '16px', overflow: 'hidden', position: 'relative', border: '1px solid var(--border-light)', marginBottom: '14px' }}>
+              <svg viewBox="0 0 400 240" style={{ width: '100%', height: '100%' }}>
+                <rect x="20" y="110" width="360" height="20" fill="#CBD5E1" rx="4" />
+                <rect x="180" y="20" width="24" height="200" fill="#CBD5E1" rx="4" />
+                <rect x="30" y="30" width="80" height="50" fill="#94A3B8" rx="6" />
+                <text x="70" y="60" fill="white" fontSize="10" fontWeight="700" textAnchor="middle">Corp A / Rectorat</text>
+                <rect x="240" y="30" width="100" height="50" fill="#94A3B8" rx="6" />
+                <text x="290" y="60" fill="white" fontSize="10" fontWeight="700" textAnchor="middle">Corp C (FIESC)</text>
+              </svg>
+            </div>
+          </div>
+        )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+      </main>
+
+      {/* ================= MODAL ADAUGARE / EDITARE FACILITATE (KAN-45) ================= */}
+      {(showAddFacilityModal || editingFacility) && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(3px)', zIndex: 100, display: 'flex', alignItems: 'flex-end' }}>
+          <div style={{ width: '100%', background: 'var(--card-bg)', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', padding: '20px', maxHeight: '85%', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 800 }}>
+                {editingFacility ? '✏️ Actualizare Facilitate (PostgreSQL)' : '➕ Adăugare Facilitate Nouă (PostgreSQL)'}
+              </h3>
+              <button 
+                onClick={() => { setShowAddFacilityModal(false); setEditingFacility(null); }}
+                style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer' }}
+              >
+                ✖
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveFacility} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Alege data:</label>
+                <label style={{ fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Nume Facilitate:</label>
                 <input 
-                  type="date" 
-                  value={bookingForm.date} 
-                  onChange={(e) => setBookingForm({ ...bookingForm, date: e.target.value })}
-                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--card-bg)', color: 'var(--text-primary)' }}
+                  type="text" 
+                  required
+                  value={facilityForm.name} 
+                  onChange={(e) => setFacilityForm({ ...facilityForm, name: e.target.value })}
+                  placeholder="ex: Teren Squash Corp C"
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '12px' }}
                 />
               </div>
 
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Tip Sport:</label>
+                  <select 
+                    value={facilityForm.sport_type} 
+                    onChange={(e) => setFacilityForm({ ...facilityForm, sport_type: e.target.value })}
+                    style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '12px' }}
+                  >
+                    <option value="Fotbal">Fotbal</option>
+                    <option value="Tenis">Tenis</option>
+                    <option value="Natație">Natație</option>
+                    <option value="Fitness">Fitness</option>
+                    <option value="Saună">Saună</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Categorie:</label>
+                  <select 
+                    value={facilityForm.category} 
+                    onChange={(e) => setFacilityForm({ ...facilityForm, category: e.target.value })}
+                    style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '12px' }}
+                  >
+                    <option value="Sporturi">Sporturi</option>
+                    <option value="Înot">Înot</option>
+                    <option value="Relaxare">Relaxare</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Capacitate Max (persoane):</label>
+                  <input 
+                    type="number" 
+                    min="1"
+                    value={facilityForm.capacity} 
+                    onChange={(e) => setFacilityForm({ ...facilityForm, capacity: parseInt(e.target.value) || 1 })}
+                    style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '12px' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Preț de Bază (RON/h):</label>
+                  <input 
+                    type="number" 
+                    step="0.5"
+                    min="0"
+                    value={facilityForm.base_price_per_hour} 
+                    onChange={(e) => setFacilityForm({ ...facilityForm, base_price_per_hour: parseFloat(e.target.value) || 0 })}
+                    style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '12px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Oră Deschidere:</label>
+                  <input 
+                    type="text" 
+                    value={facilityForm.opens_at} 
+                    onChange={(e) => setFacilityForm({ ...facilityForm, opens_at: e.target.value })}
+                    style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '12px' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Oră Închidere:</label>
+                  <input 
+                    type="text" 
+                    value={facilityForm.closes_at} 
+                    onChange={(e) => setFacilityForm({ ...facilityForm, closes_at: e.target.value })}
+                    style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '12px' }}
+                  />
+                </div>
+              </div>
+
+              <button type="submit" className="btn-figma-green" style={{ marginTop: '10px' }}>
+                💾 Salvează în PostgreSQL
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL ADAUGARE / EDITARE UTILIZATOR (KAN-47) ================= */}
+      {(showAddUserModal || editingUser) && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(3px)', zIndex: 100, display: 'flex', alignItems: 'flex-end' }}>
+          <div style={{ width: '100%', background: 'var(--card-bg)', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', padding: '20px', maxHeight: '85%', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 800 }}>
+                {editingUser ? '✏️ Actualizare Utilizator (PostgreSQL)' : '➕ Adăugare Utilizator Nou (PostgreSQL)'}
+              </h3>
+              <button 
+                onClick={() => { setShowAddUserModal(false); setEditingUser(null); }}
+                style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer' }}
+              >
+                ✖
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveUser} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Interval orar:</label>
+                <label style={{ fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Nume Complet:</label>
+                <input 
+                  type="text" 
+                  required
+                  value={userForm.full_name} 
+                  onChange={(e) => setUserForm({ ...userForm, full_name: e.target.value })}
+                  placeholder="ex: Andrei Ionescu"
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '12px' }}
+                />
+              </div>
+
+              {!editingUser && (
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Email Instituțional USV:</label>
+                  <input 
+                    type="email" 
+                    required
+                    value={userForm.email} 
+                    onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                    placeholder="ex: andrei.ionescu@student.ro"
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '12px' }}
+                  />
+                </div>
+              )}
+
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Rol Instituțional:</label>
                 <select 
-                  value={bookingForm.timeSlot} 
-                  onChange={(e) => setBookingForm({ ...bookingForm, timeSlot: e.target.value })}
-                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--card-bg)', color: 'var(--text-primary)' }}
+                  value={userForm.role_type} 
+                  onChange={(e) => setUserForm({ ...userForm, role_type: e.target.value })}
+                  style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '12px' }}
                 >
-                  <option>08:00 - 09:00</option>
-                  <option>10:00 - 11:00</option>
-                  <option>14:00 - 15:00</option>
-                  <option>16:00 - 17:00</option>
-                  <option>18:00 - 19:00</option>
+                  <option value="STUDENT">STUDENT (-50% reducere)</option>
+                  <option value="PROFESSOR">PROFESSOR (-30% reducere)</option>
+                  <option value="AMATEUR">AMATEUR (public larg)</option>
+                  <option value="RECEPTIONIST">RECEPTIONIST (recepție)</option>
                 </select>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
-                <input 
-                  type="checkbox" 
-                  id="equip" 
-                  checked={bookingForm.rentEquipment} 
-                  onChange={(e) => setBookingForm({ ...bookingForm, rentEquipment: e.target.checked })} 
-                />
-                <label htmlFor="equip" style={{ fontSize: '13px' }}>Închiriază echipament sportiv (+{currency === 'RON' ? '10 RON' : '2 EUR'})</label>
-              </div>
-            </div>
-
-            <div style={{ padding: '14px', borderRadius: '8px', background: 'var(--bg-main)', marginBottom: '16px', border: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 700 }}>
-                <span>Total de plată:</span>
-                <span style={{ color: 'var(--primary)' }}>{calculateTotal(selectedFacility)} {currency}</span>
-              </div>
-            </div>
-
-            <button className="btn-primary" onClick={handleConfirmBooking}>
-              Confirmă Rezervarea & Emite Bilet
-            </button>
-          </div>
-        )}
-
-        {/* TAB 2: REZERVĂRILE MELE & COD QR */}
-        {activeTab === 'bookings' && (
-          <div>
-            <h2 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '14px' }}>Biletele & Rezervările Mele</h2>
-            {myBookings.map((b) => (
-              <div key={b.id} className="facility-card" style={{ borderLeft: '4px solid var(--primary)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <h3 style={{ fontSize: '15px', fontWeight: 700 }}>{b.facilityName}</h3>
-                  <span className="badge badge-green">CONFIRMATĂ</span>
+              {editingUser && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '6px 0' }}>
+                  <input 
+                    type="checkbox" 
+                    id="userActive"
+                    checked={userForm.is_active} 
+                    onChange={(e) => setUserForm({ ...userForm, is_active: e.target.checked })}
+                    style={{ width: '16px', height: '16px', accentColor: 'var(--primary-green)' }}
+                  />
+                  <label htmlFor="userActive" style={{ fontSize: '12px', fontWeight: 700 }}>Cont Activ</label>
                 </div>
-                <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>📅 {b.date} · ⏰ {b.time}</p>
-                <p style={{ fontSize: '12px', marginTop: '4px' }}>Cost achitat: <b>{b.totalAmount} RON</b></p>
+              )}
 
-                {/* QR Code Demo */}
-                <div style={{ marginTop: '14px', padding: '12px', background: 'var(--bg-main)', borderRadius: '8px', textAlign: 'center', border: '1px dashed var(--border)' }}>
-                  <div style={{ width: '90px', height: '90px', background: 'white', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #CBD5E1', borderRadius: '6px' }}>
-                    <span style={{ fontSize: '32px' }}>📱</span>
-                  </div>
-                  <p style={{ fontSize: '11px', fontFamily: 'monospace', marginTop: '6px', fontWeight: 600 }}>{b.qrToken}</p>
-                  <p style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Prezintă codul la turnichet / recepție</p>
-                </div>
-              </div>
-            ))}
+              <button type="submit" className="btn-figma-green" style={{ marginTop: '10px' }}>
+                💾 Salvează în PostgreSQL
+              </button>
+            </form>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* TAB 3: CONTUL MEU */}
-        {activeTab === 'account' && (
-          <div>
-            <h2 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '14px' }}>Profil Utilizator</h2>
-            <div className="facility-card">
-              <p style={{ fontSize: '14px', fontWeight: 600 }}>Cosmin Gabriel Flocea</p>
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px' }}>cosmin.flocea@student.usv.ro</p>
-              <span className="badge badge-blue">Rol: STUDENT USV</span>
-            </div>
-
-            <div className="facility-card" style={{ marginTop: '12px' }}>
-              <h4 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>Preferințe Sistem (Figma v2.1)</h4>
-              <p style={{ fontSize: '12px', marginBottom: '4px' }}>• Limbă interfață: <b>Română</b></p>
-              <p style={{ fontSize: '12px', marginBottom: '4px' }}>• Monedă preferată: <b>{currency}</b></p>
-              <p style={{ fontSize: '12px', marginBottom: '4px' }}>• Notificare reminder: <b>Activ (cu 60 min înainte)</b></p>
-            </div>
-          </div>
-        )}
-      </main>
-
-      {/* Bottom Navigation matching Figma */}
-      <nav className="nav-bottom">
+      {/* ================= BOTTOM NAVIGATION TABS (FIGMA EXACT) ================= */}
+      <nav className="figma-bottom-nav">
         <button 
-          className={`nav-item ${activeTab === 'facilities' ? 'active' : ''}`}
-          onClick={() => { setActiveTab('facilities'); setSelectedFacility(null); }}
+          className={`nav-link-btn ${currentScreen === 'facilities' || currentScreen === 'facility_detail' || currentScreen === 'choose_datetime' || currentScreen === 'summary_payment' ? 'active' : ''}`}
+          onClick={() => setCurrentScreen('facilities')}
         >
-          <span>🏟️</span>
+          <span className="nav-icon">🏟️</span>
           <span>Facilități</span>
         </button>
+
         <button 
-          className={`nav-item ${activeTab === 'bookings' ? 'active' : ''}`}
-          onClick={() => setActiveTab('bookings')}
+          className={`nav-link-btn ${currentScreen === 'map' ? 'active' : ''}`}
+          onClick={() => setCurrentScreen('map')}
         >
-          <span>🎟️</span>
+          <span className="nav-icon">📍</span>
+          <span>Hartă</span>
+        </button>
+
+        <button 
+          className={`nav-link-btn ${currentScreen === 'my_bookings' || currentScreen === 'confirmed_ticket' ? 'active' : ''}`}
+          onClick={() => setCurrentScreen('my_bookings')}
+        >
+          <span className="nav-icon">🎟️</span>
           <span>Rezervări</span>
         </button>
+
         <button 
-          className={`nav-item ${activeTab === 'account' ? 'active' : ''}`}
-          onClick={() => setActiveTab('account')}
+          className={`nav-link-btn ${currentScreen === 'admin' ? 'active' : ''}`}
+          onClick={() => { setCurrentScreen('admin'); fetchFacilitiesFromBackend(); fetchUsersFromBackend(); }}
         >
-          <span>👤</span>
-          <span>Contul meu</span>
+          <span className="nav-icon">⚙️</span>
+          <span>Admin</span>
         </button>
       </nav>
     </div>
