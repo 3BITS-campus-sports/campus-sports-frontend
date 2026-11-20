@@ -1,5 +1,38 @@
 import React, { useState, useEffect } from 'react';
 
+// Iconițe exportate din prototipul Figma (vezi descarca-iconite-figma.ps1)
+import decorHero1 from './assets/figma/decor-hero-1.svg';
+import decorHero2 from './assets/figma/decor-hero-2.svg';
+import logoBall from './assets/figma/logo-ball.svg';
+import iconSearch from './assets/figma/icon-search.svg';
+import iconMapWhite from './assets/figma/icon-map-white.svg';
+import decorCard from './assets/figma/decor-card.svg';
+import iconWaves from './assets/figma/icon-waves.svg';
+import iconFlame from './assets/figma/icon-flame.svg';
+import iconBallCard from './assets/figma/icon-ball-card.svg';
+import iconTag from './assets/figma/icon-tag.svg';
+import dotOpen from './assets/figma/dot-open.svg';
+import iconArrowWhite from './assets/figma/icon-arrow-white.svg';
+import navGrid from './assets/figma/nav-grid.svg';
+import navMap from './assets/figma/nav-map.svg';
+import navCalendar from './assets/figma/nav-calendar.svg';
+import navUser from './assets/figma/nav-user.svg';
+
+// Culoarea bannerului și iconița fiecărei categorii, ca în Figma
+const CATEGORY_STYLE = {
+  'Înot': { className: 'swim', icon: iconWaves },
+  'Relaxare': { className: 'relax', icon: iconFlame },
+  'Sporturi': { className: 'sport', icon: iconBallCard }
+};
+
+// 25 -> "25", 22.5 -> "22,50" (format românesc, fără zecimale inutile)
+const formatAmount = (value) => {
+  const number = Number(value);
+  return Number.isInteger(number)
+    ? String(number)
+    : number.toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
 export default function App() {
   // Ecranul activ curent:
   // 'auth' | 'register' | 'facilities' | 'facility_detail' | 'choose_datetime' | 
@@ -268,7 +301,11 @@ export default function App() {
     id: f.facility_id,
     name: f.name,
     nameEn: f.name,
-    subtitle: f.location_name || 'Baza Sportivă USV',
+    subtitle: [f.location_name || 'Baza Sportivă USV', f.location_zone, f.slot_minutes && `${f.slot_minutes} min`]
+      .filter(Boolean)
+      .join(' · '),
+    opensAt: f.opens_at ? f.opens_at.slice(0, 5) : null,
+    closesAt: f.closes_at ? f.closes_at.slice(0, 5) : null,
     category: f.category || 'Sporturi',
     visualBg: f.category === 'Înot' ? 'var(--bazin-bg)' : (f.category === 'Relaxare' ? 'var(--sauna-bg)' : 'var(--tenis-bg)'),
     visualColor: f.category === 'Înot' ? 'var(--bazin-accent)' : (f.category === 'Relaxare' ? 'var(--sauna-accent)' : 'var(--tenis-accent)'),
@@ -276,7 +313,7 @@ export default function App() {
     badgeAlert: f.facility_id === 3 ? 'Rezervările se deschid la 08:00' : null,
     hours: `Deschis: ${f.opens_at ? f.opens_at.slice(0, 5) : '08:00'} - ${f.closes_at ? f.closes_at.slice(0, 5) : '22:00'}`,
     priceRon: parseFloat(f.base_price_per_hour) || 30.0,
-    priceEur: ((parseFloat(f.base_price_per_hour) || 30.0) / 5).toFixed(1),
+    priceEur: Number(((parseFloat(f.base_price_per_hour) || 30.0) / 5).toFixed(2)),
     unit: '/ 1h slot',
     usefulInfo: {
       location: `${f.location_name || 'Complex USV'} (${f.location_address || 'Suceava'})`,
@@ -397,6 +434,26 @@ export default function App() {
     setCurrentScreen('facility_detail');
   };
 
+  // Tabul „Cont" și butonul „Contul meu". Până la ecranul 11 din Figma deschid panoul Admin.
+  const openAccount = () => {
+    setCurrentScreen('admin');
+    fetchFacilitiesFromBackend();
+    fetchUsersFromBackend();
+  };
+
+  // „Deschis azi · 08:00–21:00" din orele venite de la API, altfel textul existent
+  const openTodayText = (facility) =>
+    facility.opensAt && facility.closesAt
+      ? `Deschis azi · ${facility.opensAt}–${facility.closesAt}`
+      : facility.hours;
+
+  // Prețul principal în moneda aleasă, iar cealaltă monedă afișată mai mic, ca în Figma
+  const priceParts = (facility) => {
+    const ron = `${formatAmount(facility.priceRon)} RON`;
+    const eur = `${formatAmount(facility.priceEur)} EUR`;
+    return currency === 'RON' ? [ron, eur] : [eur, ron];
+  };
+
   const getRoleDiscountPercent = () => {
     if (userRole === 'STUDENT') return 50;
     if (userRole === 'PROFESSOR') return 30;
@@ -416,41 +473,27 @@ export default function App() {
   return (
     <div className="phone-mockup">
       {/* ================= HEADER BLEUMARIN FIGMA ================= */}
-      <header className="figma-header">
-        <div className="figma-header-top">
-          <div className="brand-title" onClick={() => setCurrentScreen('facilities')} style={{ cursor: 'pointer' }}>
-            <div className="brand-icon-box">S</div>
-            <span>Sport Campus</span>
-            {backendOnline && (
-              <span style={{ fontSize: '9px', background: '#22C55E', color: 'white', padding: '1px 5px', borderRadius: '4px', fontWeight: 700 }}>
-                ● DB LIVE
-              </span>
-            )}
+      <header className="figma-header sc-hero">
+        <img className="sc-hero-decor sc-hero-decor-1" src={decorHero1} alt="" />
+        <img className="sc-hero-decor sc-hero-decor-2" src={decorHero2} alt="" />
+
+        <div className="sc-hero-bar">
+          <button className="sc-brand" onClick={() => setCurrentScreen('facilities')}>
+            <span className="sc-logo"><img src={logoBall} alt="" /></span>
+            Sport Campus
+          </button>
+          {/* Temporar: „Contul meu" deschide panoul Admin până se face ecranul 11 din Figma */}
+          <button className="sc-header-action" onClick={openAccount}>Contul meu</button>
+        </div>
+
+        <div className="sc-hero-switches">
+          <div className="sc-switch" role="group" aria-label="Limbă">
+            <button className={lang === 'ro' ? 'active' : ''} onClick={() => setLang('ro')}>RO</button>
+            <button className={lang === 'en' ? 'active' : ''} onClick={() => setLang('en')}>EN</button>
           </div>
-
-          <div className="top-pills-row">
-            <div className="pill-group">
-              <button className={`pill-btn ${lang === 'ro' ? 'active' : ''}`} onClick={() => setLang('ro')}>RO</button>
-              <button className={`pill-btn ${lang === 'en' ? 'active' : ''}`} onClick={() => setLang('en')}>EN</button>
-            </div>
-
-            <div className="pill-group">
-              <button className={`pill-btn ${currency === 'RON' ? 'active' : ''}`} onClick={() => setCurrency('RON')}>RON</button>
-              <button className={`pill-btn ${currency === 'EUR' ? 'active' : ''}`} onClick={() => setCurrency('EUR')}>EUR</button>
-            </div>
-
-            <button className="pill-action" onClick={toggleDarkMode} style={{ padding: '4px 8px', fontSize: '11px' }}>
-              {darkMode ? '☀️' : '🌙'}
-            </button>
-
-            {/* Buton Panou Admin KAN-42 */}
-            <button 
-              className={`pill-action ${currentScreen === 'admin' ? 'active' : ''}`}
-              onClick={() => { setCurrentScreen('admin'); fetchFacilitiesFromBackend(); fetchUsersFromBackend(); }}
-              style={{ background: currentScreen === 'admin' ? 'var(--primary-green)' : 'var(--pill-bg)', color: 'white', fontWeight: 800 }}
-            >
-              ⚙️ Admin
-            </button>
+          <div className="sc-switch" role="group" aria-label="Monedă">
+            <button className={currency === 'RON' ? 'active' : ''} onClick={() => setCurrency('RON')}>RON</button>
+            <button className={currency === 'EUR' ? 'active' : ''} onClick={() => setCurrency('EUR')}>EUR</button>
           </div>
         </div>
 
@@ -458,7 +501,7 @@ export default function App() {
         {currentScreen === 'facilities' && (
           <div>
             <h2 className="figma-header-title">Facilități</h2>
-            <p className="figma-header-desc">Alege unde vrei să faci mișcare (Date live din PostgreSQL)</p>
+            <p className="figma-header-desc">Alege unde vrei să faci mișcare.</p>
           </div>
         )}
 
@@ -724,23 +767,27 @@ export default function App() {
 
         {/* ---------------- 03. FACILITĂȚI (Catalog Principal) ---------------- */}
         {currentScreen === 'facilities' && (
-          <div>
-            <div className="figma-search-bar">
-              <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>🔍</span>
-              <input 
-                type="text" 
-                placeholder="Caută facilitate sportivă..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>⚙️</span>
+          <div className="sc-stack">
+            <div className="sc-search-row">
+              <label className="sc-search-field">
+                <img src={iconSearch} alt="" />
+                <input
+                  type="search"
+                  placeholder="Caută după nume…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </label>
+              <button className="sc-map-button" onClick={() => setCurrentScreen('map')} aria-label="Hartă campus">
+                <img src={iconMapWhite} alt="" />
+              </button>
             </div>
 
-            <div className="category-filter-row">
+            <div className="sc-chips">
               {['Toate', 'Înot', 'Relaxare', 'Sporturi'].map((cat) => (
                 <button
                   key={cat}
-                  className={`cat-pill ${activeCategory === cat ? 'active' : ''}`}
+                  className={`sc-chip ${activeCategory === cat ? 'active' : ''}`}
                   onClick={() => setActiveCategory(cat)}
                 >
                   {cat}
@@ -748,47 +795,66 @@ export default function App() {
               ))}
             </div>
 
-            <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
-              {activeFacilitiesList.length} facilități disponibile din PostgreSQL
-            </p>
+            {(() => {
+              const visibleFacilities = activeFacilitiesList
+                .filter(f => activeCategory === 'Toate' || f.category === activeCategory)
+                .filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
-            {activeFacilitiesList
-              .filter(f => activeCategory === 'Toate' || f.category === activeCategory)
-              .filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()))
-              .map((facility) => (
-                <div key={facility.id} className="figma-facility-card">
-                  <div className="facility-top-visual" style={{ backgroundColor: facility.visualBg, color: facility.visualColor }}>
-                    <span className="visual-icon-symbol">{facility.icon}</span>
-                  </div>
+              return (
+                <>
+                  <p className="sc-list-summary">{visibleFacilities.length} facilități · prețuri / interval</p>
 
-                  <div className="facility-card-inner">
-                    <h3 className="facility-card-name">{facility.name}</h3>
-                    <p className="facility-card-subtitle">{facility.subtitle}</p>
+                  {visibleFacilities.map((facility) => {
+                    const style = CATEGORY_STYLE[facility.category] || CATEGORY_STYLE['Sporturi'];
+                    const [mainPrice, otherPrice] = priceParts(facility);
+                    return (
+                      <article
+                        key={facility.id}
+                        className="sc-facility-card"
+                        onClick={() => openFacilityDetails(facility)}
+                      >
+                        <div className={`sc-card-banner ${style.className}`}>
+                          <img className="sc-card-decor" src={decorCard} alt="" />
+                          <span className="sc-card-category">{facility.category}</span>
+                          <img className="sc-card-icon" src={style.icon} alt="" />
+                        </div>
 
-                    {facility.badgeAlert && (
-                      <span className="facility-badge-alert">{facility.badgeAlert}</span>
-                    )}
+                        <div className="sc-card-body">
+                          <h3 className="sc-card-title">{facility.name}</h3>
+                          <p className="sc-card-subtitle">{facility.subtitle}</p>
 
-                    <div className="facility-hours-text">
-                      <span>🕒</span>
-                      <span>{facility.hours}</span>
-                    </div>
+                          {facility.badgeAlert && (
+                            <span className="sc-promo">
+                              <img src={iconTag} alt="" />
+                              {facility.badgeAlert}
+                            </span>
+                          )}
 
-                    <div className="facility-price-row">
-                      <div>
-                        <span className="facility-price-val">
-                          {currency === 'RON' ? `${facility.priceRon} RON` : `${facility.priceEur} EUR`}
-                        </span>
-                        <span className="facility-price-unit"> {facility.unit}</span>
-                      </div>
+                          <span className="sc-open-today">
+                            <img src={dotOpen} alt="" />
+                            {openTodayText(facility)}
+                          </span>
 
-                      <button className="btn-figma-dark" onClick={() => openFacilityDetails(facility)}>
-                        Detalii →
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                          <div className="sc-price-row">
+                            <span className="sc-price">
+                              <strong>{mainPrice}</strong>
+                              <span>/ {otherPrice}</span>
+                            </span>
+                            <button
+                              className="sc-btn-details"
+                              onClick={(e) => { e.stopPropagation(); openFacilityDetails(facility); }}
+                            >
+                              Detalii
+                              <img src={iconArrowWhite} alt="" />
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </>
+              );
+            })()}
           </div>
         )}
 
@@ -1292,38 +1358,24 @@ export default function App() {
       )}
 
       {/* ================= BOTTOM NAVIGATION TABS (FIGMA EXACT) ================= */}
-      <nav className="figma-bottom-nav">
-        <button 
-          className={`nav-link-btn ${currentScreen === 'facilities' || currentScreen === 'facility_detail' || currentScreen === 'choose_datetime' || currentScreen === 'summary_payment' ? 'active' : ''}`}
-          onClick={() => setCurrentScreen('facilities')}
-        >
-          <span className="nav-icon">🏟️</span>
-          <span>Facilități</span>
-        </button>
-
-        <button 
-          className={`nav-link-btn ${currentScreen === 'map' ? 'active' : ''}`}
-          onClick={() => setCurrentScreen('map')}
-        >
-          <span className="nav-icon">📍</span>
-          <span>Hartă</span>
-        </button>
-
-        <button 
-          className={`nav-link-btn ${currentScreen === 'my_bookings' || currentScreen === 'confirmed_ticket' ? 'active' : ''}`}
-          onClick={() => setCurrentScreen('my_bookings')}
-        >
-          <span className="nav-icon">🎟️</span>
-          <span>Rezervări</span>
-        </button>
-
-        <button 
-          className={`nav-link-btn ${currentScreen === 'admin' ? 'active' : ''}`}
-          onClick={() => { setCurrentScreen('admin'); fetchFacilitiesFromBackend(); fetchUsersFromBackend(); }}
-        >
-          <span className="nav-icon">⚙️</span>
-          <span>Admin</span>
-        </button>
+      <nav className="figma-bottom-nav sc-nav">
+        {[
+          { label: 'Facilități', icon: navGrid, screens: ['facilities', 'facility_detail', 'choose_datetime', 'summary_payment'], onClick: () => setCurrentScreen('facilities') },
+          { label: 'Hartă', icon: navMap, screens: ['map'], onClick: () => setCurrentScreen('map') },
+          { label: 'Rezervările mele', icon: navCalendar, screens: ['my_bookings', 'confirmed_ticket'], onClick: () => setCurrentScreen('my_bookings') },
+          { label: 'Cont', icon: navUser, screens: ['admin'], onClick: openAccount }
+        ].map((tab) => (
+          <button
+            key={tab.label}
+            className={`sc-nav-tab ${tab.screens.includes(currentScreen) ? 'active' : ''}`}
+            onClick={tab.onClick}
+          >
+            <span className="sc-nav-pill">
+              <span className="sc-nav-icon" style={{ '--icon': `url(${tab.icon})` }} />
+            </span>
+            <span>{tab.label}</span>
+          </button>
+        ))}
       </nav>
     </div>
   );

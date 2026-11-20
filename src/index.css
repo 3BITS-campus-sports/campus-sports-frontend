@@ -20,6 +20,24 @@
   --sauna-accent: #F97316;
   --tenis-bg: #DCFCE7;
   --tenis-accent: #16A34A;
+
+  /* Culori din prototipul Figma (Sport Campus) */
+  --sc-navy: #0b1f3a;
+  --sc-navy-2: #17407a;
+  --sc-lime: #c8f560;
+  --sc-page: #f4f7fb;
+  --sc-card: #ffffff;
+  --sc-text: #0e1b2c;
+  --sc-text-2: #334155;
+  --sc-muted: #64748b;
+  --sc-border: #c5cfdc;
+  --sc-nav-border: #e3e9f1;
+  --sc-shadow: 0 6px 18px rgba(11, 31, 58, 0.08);
+  --sc-swim: #19b5c9;
+  --sc-relax: #ff7a45;
+  --sc-sport: #12b76a;
+  --sc-promo-bg: #ffe9df;
+  --sc-promo-text: #c2410c;
 }
 
 body.dark {
@@ -32,13 +50,21 @@ body.dark {
   --bazin-bg: #075985;
   --sauna-bg: #7C2D12;
   --tenis-bg: #14532D;
+
+  --sc-page: #0f172a;
+  --sc-card: #1e293b;
+  --sc-text: #f8fafc;
+  --sc-text-2: #cbd5e1;
+  --sc-muted: #94a3b8;
+  --sc-border: #334155;
+  --sc-nav-border: #334155;
 }
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -650,3 +676,365 @@ input:checked + .slider:before {
   font-weight: 700;
   font-size: 9px;
 }
+
+/* =====================================================================
+   STIL FIGMA "Sport Campus" – pasul 1: antet, Facilități, bara de jos
+   Valorile (culori, dimensiuni, fonturi) sunt luate din prototipul Figma.
+   ===================================================================== */
+
+.phone-mockup {
+  max-width: 390px;
+  background-color: var(--sc-page);
+}
+
+/* ---------- Antet (Hero) ---------- */
+.figma-header.sc-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 20px 26px;
+  border-radius: 0 0 28px 28px;
+  background-image: linear-gradient(152deg, var(--sc-navy) 0%, var(--sc-navy-2) 71%);
+  box-shadow: none;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.sc-hero-decor {
+  position: absolute;
+  pointer-events: none;
+}
+.sc-hero-decor-1 { left: 260px; top: -80px; width: 190px; height: 190px; }
+.sc-hero-decor-2 { left: -70px; top: 120px; width: 150px; height: 150px; }
+
+.sc-hero > *:not(.sc-hero-decor) {
+  position: relative;
+  z-index: 1;
+}
+
+.sc-hero-bar,
+.sc-hero-switches {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sc-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.sc-logo {
+  display: flex;
+  padding: 7px;
+  border-radius: 11px;
+  background-color: var(--sc-lime);
+}
+.sc-logo img { width: 20px; height: 20px; display: block; }
+
+.sc-header-action {
+  padding: 7px 12px;
+  border: none;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sc-switch {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.14);
+}
+
+.sc-switch button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sc-switch button.active {
+  background-color: var(--sc-lime);
+  color: var(--sc-navy);
+}
+
+.sc-hero .figma-header-title {
+  margin: 0;
+  font-size: 28px;
+  line-height: 34px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.sc-hero .figma-header-desc {
+  margin-top: 6px;
+  font-size: 14px;
+  line-height: 21px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* ---------- Conținut ---------- */
+.figma-screen-content {
+  padding: 20px 20px 104px;
+}
+
+.sc-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sc-search-row {
+  display: flex;
+  gap: 10px;
+}
+
+.sc-search-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--sc-border);
+  border-radius: 16px;
+  background-color: var(--sc-card);
+}
+.sc-search-field img { width: 18px; height: 18px; flex-shrink: 0; }
+
+.sc-search-field input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: none;
+  color: var(--sc-text);
+  font-size: 15px;
+  font-weight: 500;
+}
+.sc-search-field input::placeholder { color: var(--sc-muted); }
+
+.sc-map-button {
+  display: flex;
+  padding: 13px;
+  border: none;
+  border-radius: 16px;
+  background-color: var(--sc-navy);
+  cursor: pointer;
+}
+.sc-map-button img { width: 22px; height: 22px; }
+
+.sc-chips {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.sc-chip {
+  padding: 8px 14px;
+  border: 1px solid var(--sc-border);
+  border-radius: 999px;
+  background-color: var(--sc-card);
+  color: var(--sc-text-2);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sc-chip.active {
+  border-color: var(--sc-navy);
+  background-color: var(--sc-navy);
+  color: #fff;
+}
+
+.sc-list-summary {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sc-muted);
+}
+
+/* ---------- Card facilitate ---------- */
+.sc-facility-card {
+  overflow: hidden;
+  border-radius: 22px;
+  background-color: var(--sc-card);
+  box-shadow: var(--sc-shadow);
+  cursor: pointer;
+}
+
+.sc-card-banner {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+}
+.sc-card-banner.swim { background-color: var(--sc-swim); }
+.sc-card-banner.relax { background-color: var(--sc-relax); }
+.sc-card-banner.sport { background-color: var(--sc-sport); }
+
+.sc-card-decor {
+  position: absolute;
+  left: 230px;
+  top: -50px;
+  width: 130px;
+  height: 130px;
+  pointer-events: none;
+}
+
+.sc-card-category {
+  position: relative;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background-color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.swim .sc-card-category { color: var(--sc-swim); }
+.relax .sc-card-category { color: var(--sc-relax); }
+.sport .sc-card-category { color: var(--sc-sport); }
+
+.sc-card-icon { position: relative; width: 44px; height: 44px; }
+
+.sc-card-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px;
+}
+
+.sc-card-title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--sc-text);
+}
+
+.sc-card-subtitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--sc-muted);
+}
+
+.sc-promo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background-color: var(--sc-promo-bg);
+  color: var(--sc-promo-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+.sc-promo img { width: 14px; height: 14px; }
+
+.sc-open-today {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sc-text-2);
+}
+.sc-open-today img { width: 8px; height: 8px; }
+
+.sc-price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.sc-price {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.sc-price strong { font-size: 19px; font-weight: 800; color: var(--sc-text); }
+.sc-price span { font-size: 13px; font-weight: 500; color: var(--sc-muted); }
+
+.sc-btn-details {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border: none;
+  border-radius: 999px;
+  background-color: var(--sc-navy);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.sc-btn-details img { width: 14px; height: 14px; }
+
+/* ---------- Bara de navigare de jos ---------- */
+.figma-bottom-nav.sc-nav {
+  height: auto;
+  align-items: flex-start;
+  padding: 10px 12px 22px;
+  border-top: 1px solid var(--sc-nav-border);
+  background-color: var(--sc-card);
+  box-shadow: 0 -6px 16px rgba(11, 31, 58, 0.06);
+}
+
+.sc-nav-tab {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: none;
+  color: var(--sc-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.sc-nav-tab.active {
+  color: var(--sc-navy);
+  font-weight: 800;
+}
+
+.sc-nav-pill {
+  display: flex;
+  padding: 5px 18px;
+  border-radius: 14px;
+}
+.sc-nav-tab.active .sc-nav-pill { background-color: var(--sc-lime); }
+
+/* Iconița din Figma folosită ca mască, ca să ia culoarea textului (activ / inactiv) */
+.sc-nav-icon {
+  width: 22px;
+  height: 22px;
+  background-color: currentColor;
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
+}
+
+body.dark .sc-nav-tab.active { color: var(--sc-navy); }
+body.dark .sc-nav-tab.active span:last-child { color: var(--sc-lime); }
