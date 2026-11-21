@@ -1,6 +1,6 @@
 # Descarca iconitele din prototipul Figma in src/assets/figma.
 # Ruleaza din folderul campus-sports-frontend:  powershell -ExecutionPolicy Bypass -File .\descarca-iconite-figma.ps1
-# Linkurile sunt temporare (expira dupa 7 zile de la generare, pe 27.11.2026).
+# Linkurile sunt temporare: pasul 1 expira pe 27.11.2026, pasul 2 pe 28.11.2026.
 $ErrorActionPreference = 'Stop'
 $dest = Join-Path $PSScriptRoot 'src\assets\figma'
 New-Item -ItemType Directory -Force -Path $dest | Out-Null
@@ -22,6 +22,11 @@ $iconite = [ordered]@{
   'nav-map.svg'        = 'https://www.figma.com/api/mcp/asset/6ae18f38-562c-413e-8921-7801b5a460af.svg'
   'nav-calendar.svg'   = 'https://www.figma.com/api/mcp/asset/1d13a551-2d0b-450d-8fe0-806617d65902.svg'
   'nav-user.svg'       = 'https://www.figma.com/api/mcp/asset/e090fb44-3d95-4d8b-aeaa-b71f9a459f2b.svg'
+  # Pasul 2: Autentificare si Creare cont
+  'icon-arrow-dark.svg' = 'https://www.figma.com/api/mcp/asset/6df6229e-103c-423a-a44a-973e3bd2ffcd.svg'
+  'icon-lock.svg'      = 'https://www.figma.com/api/mcp/asset/991d8b1b-7b76-4f3b-bc52-40e0b45bf9d0.svg'
+  'icon-check.svg'     = 'https://www.figma.com/api/mcp/asset/d977e63e-e464-41be-a846-78ba4869d630.svg'
+  'icon-info-red.svg'  = 'https://www.figma.com/api/mcp/asset/92bbe240-3d20-4049-b107-4ff6efd6c215.svg'
 }
 
 foreach ($nume in $iconite.Keys) {
