@@ -1038,3 +1038,221 @@ input:checked + .slider:before {
 
 body.dark .sc-nav-tab.active { color: var(--sc-navy); }
 body.dark .sc-nav-tab.active span:last-child { color: var(--sc-lime); }
+
+/* =====================================================================
+   STIL FIGMA – pasul 2: Autentificare și Creare cont (01, 01b, 02, 02b)
+   ===================================================================== */
+
+.figma-screen-content.sc-no-nav {
+  padding-bottom: 20px;
+}
+
+.sc-form-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 22px;
+  background-color: var(--sc-card);
+  box-shadow: var(--sc-shadow);
+}
+
+.sc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sc-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sc-text-2);
+}
+
+.sc-input {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--sc-border);
+  border-radius: 14px;
+  background-color: var(--sc-card);
+}
+
+/* Bordura roșie de 1,5px din Figma 01b / 02b; padding mai mic ca înălțimea să rămână la fel */
+.sc-input.error {
+  padding: 13.5px;
+  border: 1.5px solid #e5484d;
+}
+
+.sc-input input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: none;
+  color: var(--sc-text);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+}
+.sc-input input::placeholder { color: var(--sc-muted); }
+
+.sc-input-toggle,
+.sc-link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: #2563eb;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.sc-input-toggle { font-weight: 700; }
+.sc-link { font-weight: 600; }
+
+.sc-link-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.sc-field-error {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e5484d;
+}
+.sc-field-error.sc-block { display: block; margin-top: 4px; }
+
+.sc-field-hint {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sc-muted);
+}
+
+.sc-btn-primary,
+.sc-btn-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 16px;
+  border-radius: 16px;
+  color: var(--sc-navy);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.sc-btn-primary {
+  border: none;
+  background-color: var(--sc-lime);
+  box-shadow: var(--sc-shadow);
+}
+.sc-btn-primary img { width: 18px; height: 18px; }
+.sc-btn-primary:disabled { opacity: 0.7; cursor: wait; }
+
+.sc-btn-secondary {
+  border: 1.5px solid var(--sc-border);
+  background-color: var(--sc-card);
+}
+
+.sc-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--sc-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.sc-divider::before,
+.sc-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background-color: var(--sc-nav-border);
+}
+
+.sc-new-account {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--sc-nav-border);
+  border-radius: 22px;
+  background-color: var(--sc-card);
+}
+.sc-new-account p {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--sc-text);
+}
+
+.sc-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  background-color: #e8f0ff;
+  color: var(--sc-navy);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 19px;
+}
+.sc-info img { width: 20px; height: 20px; flex-shrink: 0; }
+
+.sc-alert-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #f4b9bb;
+  border-radius: 14px;
+  background-color: #fde4e5;
+  color: #e5484d;
+  font-size: 14px;
+  font-weight: 700;
+}
+.sc-alert-error img { width: 20px; height: 20px; flex-shrink: 0; }
+
+/* Bifa de consimțământ: căsuța nativă e ascunsă, se vede cea din Figma */
+.sc-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  color: var(--sc-text-2);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19px;
+  cursor: pointer;
+}
+
+.sc-consent input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sc-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid var(--sc-border);
+  border-radius: 7px;
+  background-color: var(--sc-card);
+}
+.sc-checkbox img { width: 14px; height: 14px; visibility: hidden; }
+
+.sc-consent input:checked + .sc-checkbox {
+  border-color: var(--sc-navy);
+  background-color: var(--sc-navy);
+}
+.sc-consent input:checked + .sc-checkbox img { visibility: visible; }
+.sc-consent input:focus-visible + .sc-checkbox { outline: 2px solid #2563eb; outline-offset: 2px; }

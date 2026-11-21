@@ -17,6 +17,48 @@ import navGrid from './assets/figma/nav-grid.svg';
 import navMap from './assets/figma/nav-map.svg';
 import navCalendar from './assets/figma/nav-calendar.svg';
 import navUser from './assets/figma/nav-user.svg';
+import iconArrowDark from './assets/figma/icon-arrow-dark.svg';
+import iconLock from './assets/figma/icon-lock.svg';
+import iconCheck from './assets/figma/icon-check.svg';
+import iconInfoRed from './assets/figma/icon-info-red.svg';
+
+// Ecranele de autentificare: fără bara de jos, cu „Ajutor" în antet (ca în Figma 01 și 02)
+const AUTH_SCREENS = ['login', 'register'];
+const AUTH_STORAGE_KEY = 'sc_auth';
+const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const MIN_PASSWORD_LENGTH = 8;
+
+// Tokenul și utilizatorul salvate după login, ca să rămâi autentificat după reîncărcarea paginii
+const readStoredAuth = () => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY));
+    return saved && saved.token ? saved : { token: null, user: null };
+  } catch {
+    return { token: null, user: null };
+  }
+};
+
+// Trimite emailul și parola la POST /api/v1/auth/login. Întoarce { ok, data } sau { ok: false, message }.
+const requestLogin = async (email, password) => {
+  try {
+    const res = await fetch('/api/v1/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim(), password })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (res.ok) {
+      return { ok: true, data: body };
+    }
+    // 401 = email sau parolă greșită; textul e cel din Figma (ecranul 01b)
+    const message = res.status === 401
+      ? 'Email sau parolă incorectă'
+      : body.error?.message || `Eroare ${res.status}`;
+    return { ok: false, message };
+  } catch {
+    return { ok: false, message: 'Serverul nu răspunde. Verifică dacă backend-ul este pornit.' };
+  }
+};
 
 // Culoarea bannerului și iconița fiecărei categorii, ca în Figma
 const CATEGORY_STYLE = {
@@ -35,9 +77,27 @@ const formatAmount = (value) => {
 
 export default function App() {
   // Ecranul activ curent:
-  // 'auth' | 'register' | 'facilities' | 'facility_detail' | 'choose_datetime' | 
+  // 'login' | 'register' | 'facilities' | 'facility_detail' | 'choose_datetime' |
   // 'summary_payment' | 'confirmed_ticket' | 'my_bookings' | 'map' | 'admin'
-  const [currentScreen, setCurrentScreen] = useState('facilities');
+  // Fără token salvat, aplicația pornește pe ecranul de autentificare (Figma 01)
+  const [currentScreen, setCurrentScreen] = useState(() => (readStoredAuth().token ? 'facilities' : 'login'));
+
+  // Autentificare (KAN-21): tokenul JWT și utilizatorul primite de la /auth/login
+  const [authToken, setAuthToken] = useState(() => readStoredAuth().token);
+  const [authUser, setAuthUser] = useState(() => readStoredAuth().user);
+
+  // Formularul de autentificare (Figma 01 / 01b)
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [loginError, setLoginError] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+
+  // Formularul de creare cont (Figma 02 / 02b)
+  const emptyRegisterForm = { fullName: '', email: '', password: '', acceptedTerms: false };
+  const [registerForm, setRegisterForm] = useState(emptyRegisterForm);
+  const [registerErrors, setRegisterErrors] = useState({});
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+
+  const [authSubmitting, setAuthSubmitting] = useState(false);
   
   // Setări globale
   const [lang, setLang] = useState('ro'); // 'ro' | 'en'
@@ -441,6 +501,109 @@ export default function App() {
     fetchUsersFromBackend();
   };
 
+  // Salvează sesiunea după login și deschide lista de facilități
+  const completeLogin = ({ token, user }) => {
+    try {
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token, user }));
+    } catch {
+      // Fără localStorage (mod privat), sesiunea ține doar până la reîncărcarea paginii
+    }
+    setAuthToken(token);
+    setAuthUser(user);
+    // Reducerea din rezumatul plății se calculează după rolul utilizatorului autentificat
+    if (['STUDENT', 'PROFESSOR', 'AMATEUR'].includes(user.roleType)) {
+      setUserRole(user.roleType);
+    }
+    setLoginForm({ email: '', password: '' });
+    setRegisterForm(emptyRegisterForm);
+    setCurrentScreen('facilities');
+  };
+
+  const goToLogin = () => {
+    setLoginError('');
+    setCurrentScreen('login');
+  };
+
+  const goToRegister = () => {
+    setRegisterErrors({});
+    setCurrentScreen('register');
+  };
+
+  // Figma 01: „Autentifică-te"
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoginError('');
+    setAuthSubmitting(true);
+    const result = await requestLogin(loginForm.email, loginForm.password);
+    setAuthSubmitting(false);
+    if (result.ok) {
+      completeLogin(result.data);
+    } else {
+      setLoginError(result.message);
+    }
+  };
+
+  // Verificările din formularul de creare cont, înainte de trimitere (Figma 02b)
+  const validateRegisterForm = () => {
+    const errors = {};
+    if (registerForm.fullName.trim() === '') {
+      errors.fullName = 'Completează numele și prenumele';
+    }
+    if (!EMAIL_PATTERN.test(registerForm.email.trim())) {
+      errors.email = 'Introdu o adresă de email validă';
+    }
+    if (registerForm.password.length < MIN_PASSWORD_LENGTH) {
+      errors.password = `Parola trebuie să aibă minimum ${MIN_PASSWORD_LENGTH} caractere`;
+    }
+    if (!registerForm.acceptedTerms) {
+      errors.terms = 'Trebuie să accepți termenii pentru a crea contul';
+    }
+    return errors;
+  };
+
+  // Figma 02: „Creează contul" -> POST /auth/register, apoi autentificare automată
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    const errors = validateRegisterForm();
+    setRegisterErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      return;
+    }
+
+    setAuthSubmitting(true);
+    try {
+      const res = await fetch('/api/v1/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: registerForm.fullName.trim(),
+          email: registerForm.email.trim(),
+          password: registerForm.password,
+          roleType: 'STUDENT'
+        })
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setRegisterErrors({
+          general: res.status === 409
+            ? 'Există deja un cont cu acest email.'
+            : body.error?.message || `Eroare ${res.status}`
+        });
+        return;
+      }
+      const login = await requestLogin(registerForm.email, registerForm.password);
+      if (login.ok) {
+        completeLogin(login.data);
+      } else {
+        setRegisterErrors({ general: login.message });
+      }
+    } catch {
+      setRegisterErrors({ general: 'Serverul nu răspunde. Verifică dacă backend-ul este pornit.' });
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
   // „Deschis azi · 08:00–21:00" din orele venite de la API, altfel textul existent
   const openTodayText = (facility) =>
     facility.opensAt && facility.closesAt
@@ -478,12 +641,17 @@ export default function App() {
         <img className="sc-hero-decor sc-hero-decor-2" src={decorHero2} alt="" />
 
         <div className="sc-hero-bar">
-          <button className="sc-brand" onClick={() => setCurrentScreen('facilities')}>
+          <button className="sc-brand" onClick={() => setCurrentScreen(authToken ? 'facilities' : 'login')}>
             <span className="sc-logo"><img src={logoBall} alt="" /></span>
             Sport Campus
           </button>
-          {/* Temporar: „Contul meu" deschide panoul Admin până se face ecranul 11 din Figma */}
-          <button className="sc-header-action" onClick={openAccount}>Contul meu</button>
+          {AUTH_SCREENS.includes(currentScreen) ? (
+            // „Ajutor" va deschide ghidul de utilizare (pasul 6 din plan)
+            <button className="sc-header-action" type="button">Ajutor</button>
+          ) : (
+            // Temporar: „Contul meu" deschide panoul Admin până se face ecranul 11 din Figma
+            <button className="sc-header-action" onClick={openAccount}>Contul meu</button>
+          )}
         </div>
 
         <div className="sc-hero-switches">
@@ -498,6 +666,20 @@ export default function App() {
         </div>
 
         {/* Header Titlu Dinamic per Ecran */}
+        {currentScreen === 'login' && (
+          <div>
+            <h2 className="figma-header-title">Autentificare</h2>
+            <p className="figma-header-desc">Intră în cont pentru a rezerva o facilitate sportivă.</p>
+          </div>
+        )}
+
+        {currentScreen === 'register' && (
+          <div>
+            <h2 className="figma-header-title">Creare cont</h2>
+            <p className="figma-header-desc">Un singur pas. Completează datele de student.</p>
+          </div>
+        )}
+
         {currentScreen === 'facilities' && (
           <div>
             <h2 className="figma-header-title">Facilități</h2>
@@ -571,7 +753,164 @@ export default function App() {
       </header>
 
       {/* ================= CONȚINUT ECRANE ================= */}
-      <main className="figma-screen-content">
+      <main className={`figma-screen-content ${AUTH_SCREENS.includes(currentScreen) ? 'sc-no-nav' : ''}`}>
+
+        {/* ---------------- AUTENTIFICARE (Figma 01 / 01b) ---------------- */}
+        {currentScreen === 'login' && (
+          <div className="sc-stack">
+            <form className="sc-form-card" onSubmit={handleLogin} noValidate>
+              {loginError && (
+                <div className="sc-alert-error" role="alert">
+                  <img src={iconInfoRed} alt="" />
+                  <span>{loginError}</span>
+                </div>
+              )}
+
+              <label className="sc-field">
+                <span className="sc-label">Email</span>
+                <span className={`sc-input ${loginError ? 'error' : ''}`}>
+                  <input
+                    type="email"
+                    autoComplete="email"
+                    placeholder="ana.popescu@stud.univ.ro"
+                    value={loginForm.email}
+                    onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                  />
+                </span>
+              </label>
+
+              <label className="sc-field">
+                <span className="sc-label">Parolă</span>
+                <span className={`sc-input ${loginError ? 'error' : ''}`}>
+                  <input
+                    type={showLoginPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    value={loginForm.password}
+                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                  />
+                  <button
+                    type="button"
+                    className="sc-input-toggle"
+                    onClick={() => setShowLoginPassword(!showLoginPassword)}
+                  >
+                    {showLoginPassword ? 'Ascunde' : 'Arată'}
+                  </button>
+                </span>
+              </label>
+
+              <div className="sc-link-row">
+                {/* Recuperarea parolei nu există încă în backend */}
+                <button type="button" className="sc-link">Ai uitat parola?</button>
+              </div>
+
+              <button type="submit" className="sc-btn-primary" disabled={authSubmitting}>
+                {authSubmitting ? 'Se verifică…' : 'Autentifică-te'}
+                <img src={iconArrowDark} alt="" />
+              </button>
+            </form>
+
+            <div className="sc-divider"><span>sau</span></div>
+
+            <div className="sc-new-account">
+              <p>Nu ai încă un cont?</p>
+              <button type="button" className="sc-btn-secondary" onClick={goToRegister}>
+                Creează un cont
+              </button>
+            </div>
+
+            <div className="sc-info">
+              <img src={iconLock} alt="" />
+              <span>Un singur cont pentru rezervări, plata online și accesul în facilități.</span>
+            </div>
+          </div>
+        )}
+
+        {/* ---------------- CREARE CONT (Figma 02 / 02b) ---------------- */}
+        {currentScreen === 'register' && (
+          <form className="sc-stack" onSubmit={handleRegister} noValidate>
+            <div className="sc-form-card">
+              {registerErrors.general && (
+                <div className="sc-alert-error" role="alert">
+                  <img src={iconInfoRed} alt="" />
+                  <span>{registerErrors.general}</span>
+                </div>
+              )}
+
+              <label className="sc-field">
+                <span className="sc-label">Nume și prenume</span>
+                <span className={`sc-input ${registerErrors.fullName ? 'error' : ''}`}>
+                  <input
+                    type="text"
+                    autoComplete="name"
+                    placeholder="Ana Popescu"
+                    value={registerForm.fullName}
+                    onChange={(e) => setRegisterForm({ ...registerForm, fullName: e.target.value })}
+                  />
+                </span>
+                {registerErrors.fullName && <span className="sc-field-error">{registerErrors.fullName}</span>}
+              </label>
+
+              <label className="sc-field">
+                <span className="sc-label">Email de student</span>
+                <span className={`sc-input ${registerErrors.email ? 'error' : ''}`}>
+                  <input
+                    type="email"
+                    autoComplete="email"
+                    placeholder="ana.popescu@stud.univ.ro"
+                    value={registerForm.email}
+                    onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
+                  />
+                </span>
+                {registerErrors.email && <span className="sc-field-error">{registerErrors.email}</span>}
+              </label>
+
+              <label className="sc-field">
+                <span className="sc-label">Parolă</span>
+                <span className={`sc-input ${registerErrors.password ? 'error' : ''}`}>
+                  <input
+                    type={showRegisterPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    value={registerForm.password}
+                    onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
+                  />
+                  <button
+                    type="button"
+                    className="sc-input-toggle"
+                    onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                  >
+                    {showRegisterPassword ? 'Ascunde' : 'Arată'}
+                  </button>
+                </span>
+                {registerErrors.password && <span className="sc-field-error">{registerErrors.password}</span>}
+                <span className="sc-field-hint">Folosește o parolă unică pentru acest cont.</span>
+              </label>
+            </div>
+
+            <label className="sc-consent">
+              <input
+                type="checkbox"
+                checked={registerForm.acceptedTerms}
+                onChange={(e) => setRegisterForm({ ...registerForm, acceptedTerms: e.target.checked })}
+              />
+              <span className="sc-checkbox" aria-hidden="true">
+                <img src={iconCheck} alt="" />
+              </span>
+              <span>
+                Accept termenii de utilizare și am citit informarea privind datele personale.
+                {registerErrors.terms && <span className="sc-field-error sc-block">{registerErrors.terms}</span>}
+              </span>
+            </label>
+
+            <button type="submit" className="sc-btn-primary" disabled={authSubmitting}>
+              {authSubmitting ? 'Se creează contul…' : 'Creează contul'}
+              <img src={iconArrowDark} alt="" />
+            </button>
+
+            <button type="button" className="sc-btn-secondary" onClick={goToLogin}>
+              Ai deja cont? Autentifică-te
+            </button>
+          </form>
+        )}
 
         {/* ---------------- PANOU ADMIN (KAN-42, KAN-45, KAN-47) ---------------- */}
         {currentScreen === 'admin' && (
@@ -1358,25 +1697,28 @@ export default function App() {
       )}
 
       {/* ================= BOTTOM NAVIGATION TABS (FIGMA EXACT) ================= */}
-      <nav className="figma-bottom-nav sc-nav">
-        {[
-          { label: 'Facilități', icon: navGrid, screens: ['facilities', 'facility_detail', 'choose_datetime', 'summary_payment'], onClick: () => setCurrentScreen('facilities') },
-          { label: 'Hartă', icon: navMap, screens: ['map'], onClick: () => setCurrentScreen('map') },
-          { label: 'Rezervările mele', icon: navCalendar, screens: ['my_bookings', 'confirmed_ticket'], onClick: () => setCurrentScreen('my_bookings') },
-          { label: 'Cont', icon: navUser, screens: ['admin'], onClick: openAccount }
-        ].map((tab) => (
-          <button
-            key={tab.label}
-            className={`sc-nav-tab ${tab.screens.includes(currentScreen) ? 'active' : ''}`}
-            onClick={tab.onClick}
-          >
-            <span className="sc-nav-pill">
-              <span className="sc-nav-icon" style={{ '--icon': `url(${tab.icon})` }} />
-            </span>
-            <span>{tab.label}</span>
-          </button>
-        ))}
-      </nav>
+      {/* Bara de jos nu apare pe ecranele de autentificare (Figma 01 și 02) */}
+      {!AUTH_SCREENS.includes(currentScreen) && (
+        <nav className="figma-bottom-nav sc-nav">
+          {[
+            { label: 'Facilități', icon: navGrid, screens: ['facilities', 'facility_detail', 'choose_datetime', 'summary_payment'], onClick: () => setCurrentScreen('facilities') },
+            { label: 'Hartă', icon: navMap, screens: ['map'], onClick: () => setCurrentScreen('map') },
+            { label: 'Rezervările mele', icon: navCalendar, screens: ['my_bookings', 'confirmed_ticket'], onClick: () => setCurrentScreen('my_bookings') },
+            { label: 'Cont', icon: navUser, screens: ['admin'], onClick: openAccount }
+          ].map((tab) => (
+            <button
+              key={tab.label}
+              className={`sc-nav-tab ${tab.screens.includes(currentScreen) ? 'active' : ''}`}
+              onClick={tab.onClick}
+            >
+              <span className="sc-nav-pill">
+                <span className="sc-nav-icon" style={{ '--icon': `url(${tab.icon})` }} />
+              </span>
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </nav>
+      )}
     </div>
   );
 }
