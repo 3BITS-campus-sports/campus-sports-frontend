@@ -1,10 +1,177 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+
+// Iconițe exportate din prototipul Figma (vezi descarca-iconite-figma.ps1)
+import decorHero1 from './assets/figma/decor-hero-1.svg';
+import decorHero2 from './assets/figma/decor-hero-2.svg';
+import logoBall from './assets/figma/logo-ball.svg';
+import iconSearch from './assets/figma/icon-search.svg';
+import iconMapWhite from './assets/figma/icon-map-white.svg';
+import decorCard from './assets/figma/decor-card.svg';
+import iconWaves from './assets/figma/icon-waves.svg';
+import iconFlame from './assets/figma/icon-flame.svg';
+import iconBallCard from './assets/figma/icon-ball-card.svg';
+import iconTag from './assets/figma/icon-tag.svg';
+import dotOpen from './assets/figma/dot-open.svg';
+import iconArrowWhite from './assets/figma/icon-arrow-white.svg';
+import navGrid from './assets/figma/nav-grid.svg';
+import navMap from './assets/figma/nav-map.svg';
+import navCalendar from './assets/figma/nav-calendar.svg';
+import navUser from './assets/figma/nav-user.svg';
+import iconArrowDark from './assets/figma/icon-arrow-dark.svg';
+import iconLock from './assets/figma/icon-lock.svg';
+import iconCheck from './assets/figma/icon-check.svg';
+import iconInfoRed from './assets/figma/icon-info-red.svg';
+import iconBackBlue from './assets/figma/icon-back-blue.svg';
+import iconMapTeal from './assets/figma/icon-map-teal.svg';
+import iconClockTeal from './assets/figma/icon-clock-teal.svg';
+import iconTagOrange from './assets/figma/icon-tag-orange.svg';
+import iconCheckGreen from './assets/figma/icon-check-green.svg';
+import iconPhoneWhite from './assets/figma/icon-phone-white.svg';
+import iconInfoDark from './assets/figma/icon-info-dark.svg';
+import iconChevronLeft from './assets/figma/icon-chevron-left.svg';
+import iconChevronRight from './assets/figma/icon-chevron-right.svg';
+import dotLegendFree from './assets/figma/dot-legend-free.svg';
+import dotLegendBusy from './assets/figma/dot-legend-busy.svg';
+import dotLegendSelected from './assets/figma/dot-legend-selected.svg';
+import dotSlotFree from './assets/figma/dot-slot-free.svg';
+import dotSlotBusy from './assets/figma/dot-slot-busy.svg';
+import dotSlotSelected from './assets/figma/dot-slot-selected.svg';
+import iconInfoBlue from './assets/figma/icon-info-blue.svg';
+import iconInfoAmber from './assets/figma/icon-info-amber.svg';
+import iconArrowMuted from './assets/figma/icon-arrow-muted.svg';
+
+// ---------- Calendar (Figma 05) ----------
+const MONTHS_RO = ['ianuarie', 'februarie', 'martie', 'aprilie', 'mai', 'iunie', 'iulie',
+  'august', 'septembrie', 'octombrie', 'noiembrie', 'decembrie'];
+const WEEKDAYS_RO = ['duminică', 'luni', 'marți', 'miercuri', 'joi', 'vineri', 'sâmbătă'];
+const WEEKDAY_HEADERS = ['L', 'Ma', 'Mi', 'J', 'V', 'S', 'D'];
+// Cât de departe în viitor se poate rezerva (luni după luna curentă)
+const MAX_MONTHS_AHEAD = 2;
+
+// Data locală în formatul cerut de API: 2026-11-24
+const toIsoDate = (date) => [
+  date.getFullYear(),
+  String(date.getMonth() + 1).padStart(2, '0'),
+  String(date.getDate()).padStart(2, '0')
+].join('-');
+
+// „marți, 24 noiembrie 2026"
+const formatLongDate = (isoDate) => {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return `${WEEKDAYS_RO[date.getDay()]}, ${day} ${MONTHS_RO[month - 1]} ${year}`;
+};
+
+// Celulele calendarului pentru o lună: null pentru golurile de la început și sfârșit, apoi zilele
+const buildMonthCells = (year, month) => {
+  const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7; // luni = 0
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells = Array(firstWeekday).fill(null);
+  for (let day = 1; day <= daysInMonth; day++) {
+    cells.push(toIsoDate(new Date(year, month, day)));
+  }
+  while (cells.length % 7 !== 0) {
+    cells.push(null);
+  }
+  return cells;
+};
+
+// Textul de stare al unui interval: „Disponibil · 6/10 locuri", „Ocupat", „Selectat · 4/10 locuri"
+const slotStatusText = (slot, isSelected) => {
+  const seats = slot.capacity > 1 ? ` · ${slot.seatsLeft}/${slot.capacity} locuri` : '';
+  if (isSelected) return `Selectat${seats}`;
+  if (slot.overlapsOwnBooking) return 'Se suprapune cu o rezervare a ta';
+  if (slot.isAvailable) return `Disponibil${seats}`;
+  return `Ocupat${seats}`;
+};
+
+// Ecranele de autentificare: fără bara de jos, cu „Ajutor" în antet (ca în Figma 01 și 02)
+const AUTH_SCREENS = ['login', 'register'];
+const AUTH_STORAGE_KEY = 'sc_auth';
+const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const MIN_PASSWORD_LENGTH = 8;
+// Aceeași regulă ca în backend (POST /auth/register): cel puțin o literă și o cifră
+const PASSWORD_LETTER = /[A-Za-zĂÂÎȘȚăâîșț]/;
+const PASSWORD_DIGIT = /\d/;
+
+// Tokenul și utilizatorul salvate după login, ca să rămâi autentificat după reîncărcarea paginii
+const readStoredAuth = () => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY));
+    return saved && saved.token ? saved : { token: null, user: null };
+  } catch {
+    return { token: null, user: null };
+  }
+};
+
+// Trimite emailul și parola la POST /api/v1/auth/login. Întoarce { ok, data } sau { ok: false, message }.
+const requestLogin = async (email, password) => {
+  try {
+    const res = await fetch('/api/v1/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim(), password })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (res.ok) {
+      return { ok: true, data: body };
+    }
+    // 401 = email sau parolă greșită; textul e cel din Figma (ecranul 01b)
+    const message = res.status === 401
+      ? 'Email sau parolă incorectă'
+      : body.error?.message || `Eroare ${res.status}`;
+    return { ok: false, message };
+  } catch {
+    return { ok: false, message: 'Serverul nu răspunde. Verifică dacă backend-ul este pornit.' };
+  }
+};
+
+// Culoarea bannerului și iconița fiecărei categorii, ca în Figma
+const CATEGORY_STYLE = {
+  'Înot': { className: 'swim', icon: iconWaves },
+  'Relaxare': { className: 'relax', icon: iconFlame },
+  'Sporturi': { className: 'sport', icon: iconBallCard }
+};
+
+// 25 -> "25", 22.5 -> "22,50" (format românesc, fără zecimale inutile)
+const formatAmount = (value) => {
+  const number = Number(value);
+  return Number.isInteger(number)
+    ? String(number)
+    : number.toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
 
 export default function App() {
   // Ecranul activ curent:
-  // 'auth' | 'register' | 'facilities' | 'facility_detail' | 'choose_datetime' | 
+  // 'login' | 'register' | 'facilities' | 'facility_detail' | 'choose_datetime' |
   // 'summary_payment' | 'confirmed_ticket' | 'my_bookings' | 'map' | 'admin'
-  const [currentScreen, setCurrentScreen] = useState('facilities');
+  // Fără token salvat, aplicația pornește pe ecranul de autentificare (Figma 01)
+  const [currentScreen, setCurrentScreen] = useState(() => (readStoredAuth().token ? 'facilities' : 'login'));
+
+  // Autentificare (KAN-21): tokenul JWT și utilizatorul primite de la /auth/login
+  const [authToken, setAuthToken] = useState(() => readStoredAuth().token);
+  const [authUser, setAuthUser] = useState(() => readStoredAuth().user);
+
+  // Formularul de autentificare (Figma 01 / 01b)
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [loginError, setLoginError] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+
+  // Formularul de creare cont (Figma 02 / 02b)
+  const emptyRegisterForm = { fullName: '', email: '', password: '', acceptedTerms: false };
+  const [registerForm, setRegisterForm] = useState(emptyRegisterForm);
+  const [registerErrors, setRegisterErrors] = useState({});
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+
+  // Fiecare ecran nou se deschide de sus, nu de la poziția de derulare a ecranului anterior
+  const screenContentRef = useRef(null);
+  useEffect(() => {
+    if (screenContentRef.current) {
+      screenContentRef.current.scrollTop = 0;
+    }
+  }, [currentScreen]);
   
   // Setări globale
   const [lang, setLang] = useState('ro'); // 'ro' | 'en'
@@ -22,9 +189,15 @@ export default function App() {
   // Facilitate selectată pentru fluxul de rezervare
   const [selectedFacility, setSelectedFacility] = useState(null);
 
-  // Data și ora selectate în calendar
-  const [selectedDate, setSelectedDate] = useState(27);
-  const [selectedSlot, setSelectedSlot] = useState('16:00 - 17:00');
+  // Data și intervalul selectate în calendar (Figma 05). Data e în formatul API-ului: '2026-11-24'
+  const [selectedDate, setSelectedDate] = useState(() => toIsoDate(new Date()));
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const today = new Date();
+    return { year: today.getFullYear(), month: today.getMonth() };
+  });
+  // Intervalul ales: { startLabel, endLabel, seatsLeft, capacity, ... } din GET /availability (KAN-25)
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [availability, setAvailability] = useState({ slots: [], loading: false, error: '' });
   const [addEquipment, setAddEquipment] = useState(true);
   const [reminderEnabled, setReminderEnabled] = useState(true);
 
@@ -268,7 +441,11 @@ export default function App() {
     id: f.facility_id,
     name: f.name,
     nameEn: f.name,
-    subtitle: f.location_name || 'Baza Sportivă USV',
+    subtitle: [f.location_name || 'Baza Sportivă USV', f.location_zone, f.slot_minutes && `${f.slot_minutes} min`]
+      .filter(Boolean)
+      .join(' · '),
+    opensAt: f.opens_at ? f.opens_at.slice(0, 5) : null,
+    closesAt: f.closes_at ? f.closes_at.slice(0, 5) : null,
     category: f.category || 'Sporturi',
     visualBg: f.category === 'Înot' ? 'var(--bazin-bg)' : (f.category === 'Relaxare' ? 'var(--sauna-bg)' : 'var(--tenis-bg)'),
     visualColor: f.category === 'Înot' ? 'var(--bazin-accent)' : (f.category === 'Relaxare' ? 'var(--sauna-accent)' : 'var(--tenis-accent)'),
@@ -276,14 +453,22 @@ export default function App() {
     badgeAlert: f.facility_id === 3 ? 'Rezervările se deschid la 08:00' : null,
     hours: `Deschis: ${f.opens_at ? f.opens_at.slice(0, 5) : '08:00'} - ${f.closes_at ? f.closes_at.slice(0, 5) : '22:00'}`,
     priceRon: parseFloat(f.base_price_per_hour) || 30.0,
-    priceEur: ((parseFloat(f.base_price_per_hour) || 30.0) / 5).toFixed(1),
+    priceEur: Number(((parseFloat(f.base_price_per_hour) || 30.0) / 5).toFixed(2)),
     unit: '/ 1h slot',
+    // Pentru ecranele 04 și 05 (KAN-52)
+    slotMinutes: f.slot_minutes || 60,
+    contactPhone: f.contact_phone || null,
     usefulInfo: {
-      location: `${f.location_name || 'Complex USV'} (${f.location_address || 'Suceava'})`,
-      program: `Zilnic, ${f.opens_at ? f.opens_at.slice(0, 5) : '08:00'} - ${f.closes_at ? f.closes_at.slice(0, 5) : '22:00'}`,
-      notice: 'Tarife diferențiate (Student -50%, Profesor -30%)',
-      beforeVisit: ['Echipament sportiv adecvat', 'Respectă intervalul orar rezervat'],
-      equipmentOptions: [{ name: 'Echipament sportiv complet', price: 10 }]
+      location: [f.location_name || 'Complex USV', f.location_zone, f.location_address].filter(Boolean).join(', '),
+      program: `${f.opens_at ? f.opens_at.slice(0, 5) : '08:00'}–${f.closes_at ? f.closes_at.slice(0, 5) : '22:00'}`,
+      notice: 'Tarife diferențiate: studenții au 50% reducere, profesorii 30%',
+      beforeVisit: f.category === 'Înot'
+        ? ['Adu echipamentul de înot și papucii.', 'Respectă intervalul rezervat și indicațiile personalului.', 'Pregătește codul rezervării pentru acces.']
+        : ['Vino cu echipament sportiv adecvat.', 'Respectă intervalul rezervat și indicațiile personalului.', 'Pregătește codul rezervării pentru acces.'],
+      equipmentTitle: f.category === 'Înot' ? 'Echipament de înot' : 'Echipament',
+      equipmentOptions: f.category === 'Înot'
+        ? [{ name: 'Ochelari de înot', price: 4 }, { name: 'Bonetă de înot', price: 3 }, { name: 'Plută de înot', price: 3 }]
+        : [{ name: 'Echipament sportiv complet', price: 10 }]
     }
   })) : fallbackFacilities;
 
@@ -397,6 +582,179 @@ export default function App() {
     setCurrentScreen('facility_detail');
   };
 
+  // GET /facilities/{id}/availability?date=... (KAN-25). Cu token, se marchează și suprapunerile cu rezervările proprii.
+  const loadAvailability = async (facility, isoDate) => {
+    setSelectedSlot(null);
+    setAvailability({ slots: [], loading: true, error: '' });
+    try {
+      const res = await fetch(`/api/v1/facilities/${facility.id}/availability?date=${isoDate}`, {
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {}
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message = res.status === 401
+          ? 'Sesiunea a expirat. Autentifică-te din nou pentru a rezerva.'
+          : body.error?.message || `Eroare ${res.status}`;
+        setAvailability({ slots: [], loading: false, error: message });
+        return;
+      }
+      setAvailability({ slots: body.slots || [], loading: false, error: '' });
+    } catch {
+      setAvailability({ slots: [], loading: false, error: 'Serverul nu răspunde. Verifică dacă backend-ul este pornit.' });
+    }
+  };
+
+  // Figma 04 -> 05: deschide calendarul pe ziua de azi
+  const openChooseDateTime = () => {
+    const today = new Date();
+    const isoToday = toIsoDate(today);
+    setSelectedDate(isoToday);
+    setCalendarMonth({ year: today.getFullYear(), month: today.getMonth() });
+    setCurrentScreen('choose_datetime');
+    loadAvailability(selectedFacility, isoToday);
+  };
+
+  const selectCalendarDay = (isoDate) => {
+    setSelectedDate(isoDate);
+    loadAvailability(selectedFacility, isoDate);
+  };
+
+  // Navigare între luni: nu înainte de luna curentă și cel mult MAX_MONTHS_AHEAD luni înainte
+  const changeCalendarMonth = (delta) => {
+    const today = new Date();
+    const target = new Date(calendarMonth.year, calendarMonth.month + delta, 1);
+    const monthsFromNow = (target.getFullYear() - today.getFullYear()) * 12 + target.getMonth() - today.getMonth();
+    if (monthsFromNow < 0 || monthsFromNow > MAX_MONTHS_AHEAD) {
+      return;
+    }
+    setCalendarMonth({ year: target.getFullYear(), month: target.getMonth() });
+  };
+
+  // Tabul „Cont" și butonul „Contul meu". Până la ecranul 11 din Figma deschid panoul Admin.
+  const openAccount = () => {
+    setCurrentScreen('admin');
+    fetchFacilitiesFromBackend();
+    fetchUsersFromBackend();
+  };
+
+  // Salvează sesiunea după login și deschide lista de facilități
+  const completeLogin = ({ token, user }) => {
+    try {
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token, user }));
+    } catch {
+      // Fără localStorage (mod privat), sesiunea ține doar până la reîncărcarea paginii
+    }
+    setAuthToken(token);
+    setAuthUser(user);
+    // Reducerea din rezumatul plății se calculează după rolul utilizatorului autentificat
+    if (['STUDENT', 'PROFESSOR', 'AMATEUR'].includes(user.roleType)) {
+      setUserRole(user.roleType);
+    }
+    setLoginForm({ email: '', password: '' });
+    setRegisterForm(emptyRegisterForm);
+    setCurrentScreen('facilities');
+  };
+
+  const goToLogin = () => {
+    setLoginError('');
+    setCurrentScreen('login');
+  };
+
+  const goToRegister = () => {
+    setRegisterErrors({});
+    setCurrentScreen('register');
+  };
+
+  // Figma 01: „Autentifică-te"
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoginError('');
+    setAuthSubmitting(true);
+    const result = await requestLogin(loginForm.email, loginForm.password);
+    setAuthSubmitting(false);
+    if (result.ok) {
+      completeLogin(result.data);
+    } else {
+      setLoginError(result.message);
+    }
+  };
+
+  // Verificările din formularul de creare cont, înainte de trimitere (Figma 02b)
+  const validateRegisterForm = () => {
+    const errors = {};
+    if (registerForm.fullName.trim() === '') {
+      errors.fullName = 'Completează numele și prenumele';
+    }
+    if (!EMAIL_PATTERN.test(registerForm.email.trim())) {
+      errors.email = 'Introdu o adresă de email validă';
+    }
+    if (registerForm.password.length < MIN_PASSWORD_LENGTH) {
+      errors.password = `Parola trebuie să aibă minimum ${MIN_PASSWORD_LENGTH} caractere`;
+    } else if (!PASSWORD_LETTER.test(registerForm.password) || !PASSWORD_DIGIT.test(registerForm.password)) {
+      errors.password = 'Parola trebuie să conțină cel puțin o literă și o cifră';
+    }
+    if (!registerForm.acceptedTerms) {
+      errors.terms = 'Trebuie să accepți termenii pentru a crea contul';
+    }
+    return errors;
+  };
+
+  // Figma 02: „Creează contul" -> POST /auth/register, apoi autentificare automată
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    const errors = validateRegisterForm();
+    setRegisterErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      return;
+    }
+
+    setAuthSubmitting(true);
+    try {
+      const res = await fetch('/api/v1/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: registerForm.fullName.trim(),
+          email: registerForm.email.trim(),
+          password: registerForm.password,
+          roleType: 'STUDENT'
+        })
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setRegisterErrors({
+          general: res.status === 409
+            ? 'Există deja un cont cu acest email.'
+            : body.error?.message || `Eroare ${res.status}`
+        });
+        return;
+      }
+      const login = await requestLogin(registerForm.email, registerForm.password);
+      if (login.ok) {
+        completeLogin(login.data);
+      } else {
+        setRegisterErrors({ general: login.message });
+      }
+    } catch {
+      setRegisterErrors({ general: 'Serverul nu răspunde. Verifică dacă backend-ul este pornit.' });
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  // „Deschis azi · 08:00–21:00" din orele venite de la API, altfel textul existent
+  const openTodayText = (facility) =>
+    facility.opensAt && facility.closesAt
+      ? `Deschis azi · ${facility.opensAt}–${facility.closesAt}`
+      : facility.hours;
+
+  // Prețul principal în moneda aleasă, iar cealaltă monedă afișată mai mic, ca în Figma
+  const priceParts = (facility) => {
+    const ron = `${formatAmount(facility.priceRon)} RON`;
+    const eur = `${formatAmount(facility.priceEur)} EUR`;
+    return currency === 'RON' ? [ron, eur] : [eur, ron];
+  };
+
   const getRoleDiscountPercent = () => {
     if (userRole === 'STUDENT') return 50;
     if (userRole === 'PROFESSOR') return 30;
@@ -416,49 +774,54 @@ export default function App() {
   return (
     <div className="phone-mockup">
       {/* ================= HEADER BLEUMARIN FIGMA ================= */}
-      <header className="figma-header">
-        <div className="figma-header-top">
-          <div className="brand-title" onClick={() => setCurrentScreen('facilities')} style={{ cursor: 'pointer' }}>
-            <div className="brand-icon-box">S</div>
-            <span>Sport Campus</span>
-            {backendOnline && (
-              <span style={{ fontSize: '9px', background: '#22C55E', color: 'white', padding: '1px 5px', borderRadius: '4px', fontWeight: 700 }}>
-                ● DB LIVE
-              </span>
-            )}
+      <header className="figma-header sc-hero">
+        <img className="sc-hero-decor sc-hero-decor-1" src={decorHero1} alt="" />
+        <img className="sc-hero-decor sc-hero-decor-2" src={decorHero2} alt="" />
+
+        <div className="sc-hero-bar">
+          <button className="sc-brand" onClick={() => setCurrentScreen(authToken ? 'facilities' : 'login')}>
+            <span className="sc-logo"><img src={logoBall} alt="" /></span>
+            Sport Campus
+          </button>
+          {AUTH_SCREENS.includes(currentScreen) ? (
+            // „Ajutor" va deschide ghidul de utilizare (pasul 6 din plan)
+            <button className="sc-header-action" type="button">Ajutor</button>
+          ) : (
+            // Temporar: „Contul meu" deschide panoul Admin până se face ecranul 11 din Figma
+            <button className="sc-header-action" onClick={openAccount}>Contul meu</button>
+          )}
+        </div>
+
+        <div className="sc-hero-switches">
+          <div className="sc-switch" role="group" aria-label="Limbă">
+            <button className={lang === 'ro' ? 'active' : ''} onClick={() => setLang('ro')}>RO</button>
+            <button className={lang === 'en' ? 'active' : ''} onClick={() => setLang('en')}>EN</button>
           </div>
-
-          <div className="top-pills-row">
-            <div className="pill-group">
-              <button className={`pill-btn ${lang === 'ro' ? 'active' : ''}`} onClick={() => setLang('ro')}>RO</button>
-              <button className={`pill-btn ${lang === 'en' ? 'active' : ''}`} onClick={() => setLang('en')}>EN</button>
-            </div>
-
-            <div className="pill-group">
-              <button className={`pill-btn ${currency === 'RON' ? 'active' : ''}`} onClick={() => setCurrency('RON')}>RON</button>
-              <button className={`pill-btn ${currency === 'EUR' ? 'active' : ''}`} onClick={() => setCurrency('EUR')}>EUR</button>
-            </div>
-
-            <button className="pill-action" onClick={toggleDarkMode} style={{ padding: '4px 8px', fontSize: '11px' }}>
-              {darkMode ? '☀️' : '🌙'}
-            </button>
-
-            {/* Buton Panou Admin KAN-42 */}
-            <button 
-              className={`pill-action ${currentScreen === 'admin' ? 'active' : ''}`}
-              onClick={() => { setCurrentScreen('admin'); fetchFacilitiesFromBackend(); fetchUsersFromBackend(); }}
-              style={{ background: currentScreen === 'admin' ? 'var(--primary-green)' : 'var(--pill-bg)', color: 'white', fontWeight: 800 }}
-            >
-              ⚙️ Admin
-            </button>
+          <div className="sc-switch" role="group" aria-label="Monedă">
+            <button className={currency === 'RON' ? 'active' : ''} onClick={() => setCurrency('RON')}>RON</button>
+            <button className={currency === 'EUR' ? 'active' : ''} onClick={() => setCurrency('EUR')}>EUR</button>
           </div>
         </div>
 
         {/* Header Titlu Dinamic per Ecran */}
+        {currentScreen === 'login' && (
+          <div>
+            <h2 className="figma-header-title">Autentificare</h2>
+            <p className="figma-header-desc">Intră în cont pentru a rezerva o facilitate sportivă.</p>
+          </div>
+        )}
+
+        {currentScreen === 'register' && (
+          <div>
+            <h2 className="figma-header-title">Creare cont</h2>
+            <p className="figma-header-desc">Un singur pas. Completează datele de student.</p>
+          </div>
+        )}
+
         {currentScreen === 'facilities' && (
           <div>
             <h2 className="figma-header-title">Facilități</h2>
-            <p className="figma-header-desc">Alege unde vrei să faci mișcare (Date live din PostgreSQL)</p>
+            <p className="figma-header-desc">Alege unde vrei să faci mișcare.</p>
           </div>
         )}
 
@@ -471,25 +834,17 @@ export default function App() {
 
         {currentScreen === 'facility_detail' && selectedFacility && (
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button onClick={() => setCurrentScreen('facilities')} style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: '14px', cursor: 'pointer' }}>←</button>
-              <div>
-                <h2 className="figma-header-title">{selectedFacility.name}</h2>
-                <p className="figma-header-desc">{selectedFacility.subtitle}</p>
-              </div>
-            </div>
+            <h2 className="figma-header-title">{selectedFacility.name}</h2>
+            <p className="figma-header-desc">{selectedFacility.category} · {selectedFacility.subtitle.split(' · ')[0]}</p>
           </div>
         )}
 
         {currentScreen === 'choose_datetime' && selectedFacility && (
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button onClick={() => setCurrentScreen('facility_detail')} style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: '14px', cursor: 'pointer' }}>←</button>
-              <div>
-                <h2 className="figma-header-title">Alege data și ora</h2>
-                <p className="figma-header-desc">{selectedFacility.name} · 60 min · {selectedFacility.priceRon} RON / 5 EUR</p>
-              </div>
-            </div>
+            <h2 className="figma-header-title">Alege data și ora</h2>
+            <p className="figma-header-desc">
+              {selectedFacility.name} · {selectedFacility.slotMinutes || 60} min · {formatAmount(selectedFacility.priceRon)} RON / {formatAmount(selectedFacility.priceEur)} EUR
+            </p>
           </div>
         )}
 
@@ -528,7 +883,164 @@ export default function App() {
       </header>
 
       {/* ================= CONȚINUT ECRANE ================= */}
-      <main className="figma-screen-content">
+      <main ref={screenContentRef} className={`figma-screen-content ${AUTH_SCREENS.includes(currentScreen) ? 'sc-no-nav' : ''}`}>
+
+        {/* ---------------- AUTENTIFICARE (Figma 01 / 01b) ---------------- */}
+        {currentScreen === 'login' && (
+          <div className="sc-stack">
+            <form className="sc-form-card" onSubmit={handleLogin} noValidate>
+              {loginError && (
+                <div className="sc-alert-error" role="alert">
+                  <img src={iconInfoRed} alt="" />
+                  <span>{loginError}</span>
+                </div>
+              )}
+
+              <label className="sc-field">
+                <span className="sc-label">Email</span>
+                <span className={`sc-input ${loginError ? 'error' : ''}`}>
+                  <input
+                    type="email"
+                    autoComplete="email"
+                    placeholder="ana.popescu@stud.univ.ro"
+                    value={loginForm.email}
+                    onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                  />
+                </span>
+              </label>
+
+              <label className="sc-field">
+                <span className="sc-label">Parolă</span>
+                <span className={`sc-input ${loginError ? 'error' : ''}`}>
+                  <input
+                    type={showLoginPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    value={loginForm.password}
+                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                  />
+                  <button
+                    type="button"
+                    className="sc-input-toggle"
+                    onClick={() => setShowLoginPassword(!showLoginPassword)}
+                  >
+                    {showLoginPassword ? 'Ascunde' : 'Arată'}
+                  </button>
+                </span>
+              </label>
+
+              <div className="sc-link-row">
+                {/* Recuperarea parolei nu există încă în backend */}
+                <button type="button" className="sc-link">Ai uitat parola?</button>
+              </div>
+
+              <button type="submit" className="sc-btn-primary" disabled={authSubmitting}>
+                {authSubmitting ? 'Se verifică…' : 'Autentifică-te'}
+                <img src={iconArrowDark} alt="" />
+              </button>
+            </form>
+
+            <div className="sc-divider"><span>sau</span></div>
+
+            <div className="sc-new-account">
+              <p>Nu ai încă un cont?</p>
+              <button type="button" className="sc-btn-secondary" onClick={goToRegister}>
+                Creează un cont
+              </button>
+            </div>
+
+            <div className="sc-info">
+              <img src={iconLock} alt="" />
+              <span>Un singur cont pentru rezervări, plata online și accesul în facilități.</span>
+            </div>
+          </div>
+        )}
+
+        {/* ---------------- CREARE CONT (Figma 02 / 02b) ---------------- */}
+        {currentScreen === 'register' && (
+          <form className="sc-stack" onSubmit={handleRegister} noValidate>
+            <div className="sc-form-card">
+              {registerErrors.general && (
+                <div className="sc-alert-error" role="alert">
+                  <img src={iconInfoRed} alt="" />
+                  <span>{registerErrors.general}</span>
+                </div>
+              )}
+
+              <label className="sc-field">
+                <span className="sc-label">Nume și prenume</span>
+                <span className={`sc-input ${registerErrors.fullName ? 'error' : ''}`}>
+                  <input
+                    type="text"
+                    autoComplete="name"
+                    placeholder="Ana Popescu"
+                    value={registerForm.fullName}
+                    onChange={(e) => setRegisterForm({ ...registerForm, fullName: e.target.value })}
+                  />
+                </span>
+                {registerErrors.fullName && <span className="sc-field-error">{registerErrors.fullName}</span>}
+              </label>
+
+              <label className="sc-field">
+                <span className="sc-label">Email de student</span>
+                <span className={`sc-input ${registerErrors.email ? 'error' : ''}`}>
+                  <input
+                    type="email"
+                    autoComplete="email"
+                    placeholder="ana.popescu@stud.univ.ro"
+                    value={registerForm.email}
+                    onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
+                  />
+                </span>
+                {registerErrors.email && <span className="sc-field-error">{registerErrors.email}</span>}
+              </label>
+
+              <label className="sc-field">
+                <span className="sc-label">Parolă</span>
+                <span className={`sc-input ${registerErrors.password ? 'error' : ''}`}>
+                  <input
+                    type={showRegisterPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    value={registerForm.password}
+                    onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
+                  />
+                  <button
+                    type="button"
+                    className="sc-input-toggle"
+                    onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                  >
+                    {showRegisterPassword ? 'Ascunde' : 'Arată'}
+                  </button>
+                </span>
+                {registerErrors.password && <span className="sc-field-error">{registerErrors.password}</span>}
+                <span className="sc-field-hint">Folosește o parolă unică pentru acest cont.</span>
+              </label>
+            </div>
+
+            <label className="sc-consent">
+              <input
+                type="checkbox"
+                checked={registerForm.acceptedTerms}
+                onChange={(e) => setRegisterForm({ ...registerForm, acceptedTerms: e.target.checked })}
+              />
+              <span className="sc-checkbox" aria-hidden="true">
+                <img src={iconCheck} alt="" />
+              </span>
+              <span>
+                Accept termenii de utilizare și am citit informarea privind datele personale.
+                {registerErrors.terms && <span className="sc-field-error sc-block">{registerErrors.terms}</span>}
+              </span>
+            </label>
+
+            <button type="submit" className="sc-btn-primary" disabled={authSubmitting}>
+              {authSubmitting ? 'Se creează contul…' : 'Creează contul'}
+              <img src={iconArrowDark} alt="" />
+            </button>
+
+            <button type="button" className="sc-btn-secondary" onClick={goToLogin}>
+              Ai deja cont? Autentifică-te
+            </button>
+          </form>
+        )}
 
         {/* ---------------- PANOU ADMIN (KAN-42, KAN-45, KAN-47) ---------------- */}
         {currentScreen === 'admin' && (
@@ -724,23 +1236,27 @@ export default function App() {
 
         {/* ---------------- 03. FACILITĂȚI (Catalog Principal) ---------------- */}
         {currentScreen === 'facilities' && (
-          <div>
-            <div className="figma-search-bar">
-              <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>🔍</span>
-              <input 
-                type="text" 
-                placeholder="Caută facilitate sportivă..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>⚙️</span>
+          <div className="sc-stack">
+            <div className="sc-search-row">
+              <label className="sc-search-field">
+                <img src={iconSearch} alt="" />
+                <input
+                  type="search"
+                  placeholder="Caută după nume…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </label>
+              <button className="sc-map-button" onClick={() => setCurrentScreen('map')} aria-label="Hartă campus">
+                <img src={iconMapWhite} alt="" />
+              </button>
             </div>
 
-            <div className="category-filter-row">
+            <div className="sc-chips">
               {['Toate', 'Înot', 'Relaxare', 'Sporturi'].map((cat) => (
                 <button
                   key={cat}
-                  className={`cat-pill ${activeCategory === cat ? 'active' : ''}`}
+                  className={`sc-chip ${activeCategory === cat ? 'active' : ''}`}
                   onClick={() => setActiveCategory(cat)}
                 >
                   {cat}
@@ -748,192 +1264,302 @@ export default function App() {
               ))}
             </div>
 
-            <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
-              {activeFacilitiesList.length} facilități disponibile din PostgreSQL
-            </p>
+            {(() => {
+              const visibleFacilities = activeFacilitiesList
+                .filter(f => activeCategory === 'Toate' || f.category === activeCategory)
+                .filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
-            {activeFacilitiesList
-              .filter(f => activeCategory === 'Toate' || f.category === activeCategory)
-              .filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()))
-              .map((facility) => (
-                <div key={facility.id} className="figma-facility-card">
-                  <div className="facility-top-visual" style={{ backgroundColor: facility.visualBg, color: facility.visualColor }}>
-                    <span className="visual-icon-symbol">{facility.icon}</span>
-                  </div>
+              return (
+                <>
+                  <p className="sc-list-summary">{visibleFacilities.length} facilități · prețuri / interval</p>
 
-                  <div className="facility-card-inner">
-                    <h3 className="facility-card-name">{facility.name}</h3>
-                    <p className="facility-card-subtitle">{facility.subtitle}</p>
+                  {visibleFacilities.map((facility) => {
+                    const style = CATEGORY_STYLE[facility.category] || CATEGORY_STYLE['Sporturi'];
+                    const [mainPrice, otherPrice] = priceParts(facility);
+                    return (
+                      <article
+                        key={facility.id}
+                        className="sc-facility-card"
+                        onClick={() => openFacilityDetails(facility)}
+                      >
+                        <div className={`sc-card-banner ${style.className}`}>
+                          <img className="sc-card-decor" src={decorCard} alt="" />
+                          <span className="sc-card-category">{facility.category}</span>
+                          <img className="sc-card-icon" src={style.icon} alt="" />
+                        </div>
 
-                    {facility.badgeAlert && (
-                      <span className="facility-badge-alert">{facility.badgeAlert}</span>
-                    )}
+                        <div className="sc-card-body">
+                          <h3 className="sc-card-title">{facility.name}</h3>
+                          <p className="sc-card-subtitle">{facility.subtitle}</p>
 
-                    <div className="facility-hours-text">
-                      <span>🕒</span>
-                      <span>{facility.hours}</span>
-                    </div>
+                          {facility.badgeAlert && (
+                            <span className="sc-promo">
+                              <img src={iconTag} alt="" />
+                              {facility.badgeAlert}
+                            </span>
+                          )}
 
-                    <div className="facility-price-row">
-                      <div>
-                        <span className="facility-price-val">
-                          {currency === 'RON' ? `${facility.priceRon} RON` : `${facility.priceEur} EUR`}
-                        </span>
-                        <span className="facility-price-unit"> {facility.unit}</span>
-                      </div>
+                          <span className="sc-open-today">
+                            <img src={dotOpen} alt="" />
+                            {openTodayText(facility)}
+                          </span>
 
-                      <button className="btn-figma-dark" onClick={() => openFacilityDetails(facility)}>
-                        Detalii →
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                          <div className="sc-price-row">
+                            <span className="sc-price">
+                              <strong>{mainPrice}</strong>
+                              <span>/ {otherPrice}</span>
+                            </span>
+                            <button
+                              className="sc-btn-details"
+                              onClick={(e) => { e.stopPropagation(); openFacilityDetails(facility); }}
+                            >
+                              Detalii
+                              <img src={iconArrowWhite} alt="" />
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </>
+              );
+            })()}
           </div>
         )}
 
-        {/* ---------------- 04. DETALII FACILITATE ---------------- */}
+        {/* ---------------- 04. DETALII FACILITATE (Figma 04) ---------------- */}
         {currentScreen === 'facility_detail' && selectedFacility && (
-          <div>
-            <button 
-              onClick={() => setCurrentScreen('facilities')} 
-              style={{ background: 'none', border: 'none', color: '#0284C7', fontSize: '12px', fontWeight: 700, cursor: 'pointer', marginBottom: '12px' }}
-            >
-              ← Toate facilitățile
+          <div className="sc-stack">
+            <button type="button" className="sc-back-link" onClick={() => setCurrentScreen('facilities')}>
+              <img src={iconBackBlue} alt="" />
+              Toate facilitățile
             </button>
 
-            <div className="info-section-box">
-              <h4 style={{ fontSize: '13px', fontWeight: 800, marginBottom: '12px' }}>Informații utile</h4>
-              
-              <div className="info-item-row">
-                <span>📍</span>
-                <div>
-                  <span style={{ fontWeight: 700, fontSize: '12px' }}>Locație: </span>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{selectedFacility.usefulInfo.location}</span>
-                </div>
+            <section className="sc-panel">
+              <h3 className="sc-panel-title">Informații utile</h3>
+              <div className="sc-info-row">
+                <span className="sc-info-badge"><img src={iconMapTeal} alt="" /></span>
+                <span className="sc-info-text">
+                  <span>Locație</span>
+                  <strong>{selectedFacility.usefulInfo.location}</strong>
+                </span>
               </div>
+              <div className="sc-info-row">
+                <span className="sc-info-badge"><img src={iconClockTeal} alt="" /></span>
+                <span className="sc-info-text">
+                  <span>Program</span>
+                  <strong>{selectedFacility.usefulInfo.program}</strong>
+                </span>
+              </div>
+              <hr className="sc-separator" />
+              <div className="sc-price-line">
+                <span>{selectedFacility.slotMinutes || 60} min / rezervare</span>
+                <span className="sc-price">
+                  <strong className="sc-price-large">{priceParts(selectedFacility)[0]}</strong>
+                  <span>/ {priceParts(selectedFacility)[1]}</span>
+                </span>
+              </div>
+              <p className="sc-muted-note">Preț de bază pentru un interval; reducerea se aplică la plată.</p>
+            </section>
 
-              <div className="info-item-row">
-                <span>⏰</span>
-                <div>
-                  <span style={{ fontWeight: 700, fontSize: '12px' }}>Program: </span>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{selectedFacility.usefulInfo.program}</span>
-                </div>
-              </div>
-
-              <div className="info-item-row">
-                <span>🏷️</span>
-                <div>
-                  <span style={{ fontWeight: 700, fontSize: '12px' }}>Tarif/oră: </span>
-                  <span style={{ fontWeight: 800, fontSize: '12px' }}>{selectedFacility.priceRon} RON</span>
-                  <p style={{ fontSize: '11px', color: '#16A34A', marginTop: '2px' }}>Studenții USV au 50% reducere automată</p>
-                </div>
-              </div>
-
-              <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', padding: '10px 12px', borderRadius: '10px', marginTop: '12px' }}>
-                <p style={{ fontSize: '11px', color: '#BE123C', fontWeight: 700 }}>
-                  💡 {selectedFacility.usefulInfo.notice}
-                </p>
-              </div>
+            <div className="sc-promo-box">
+              <img src={iconTagOrange} alt="" />
+              <span>{selectedFacility.usefulInfo.notice}</span>
             </div>
 
-            <div className="info-section-box">
-              <h4 style={{ fontSize: '13px', fontWeight: 800, marginBottom: '10px' }}>Înainte de vizită</h4>
-              {selectedFacility.usefulInfo.beforeVisit.map((rule, idx) => (
-                <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                  <span style={{ color: '#16A34A', fontWeight: 800 }}>✓</span>
+            <section className="sc-panel sc-panel-tight">
+              <h3 className="sc-panel-title">Înainte de vizită</h3>
+              {selectedFacility.usefulInfo.beforeVisit.map((rule) => (
+                <div key={rule} className="sc-rule">
+                  <span className="sc-rule-badge"><img src={iconCheckGreen} alt="" /></span>
                   <span>{rule}</span>
                 </div>
               ))}
-            </div>
+            </section>
 
-            <button className="btn-figma-green" onClick={() => setCurrentScreen('choose_datetime')}>
-              Rezervă - alege data și ora →
+            <section className="sc-panel sc-panel-tight">
+              <h3 className="sc-panel-title">{selectedFacility.usefulInfo.equipmentTitle || 'Echipament'} (opțional)</h3>
+              {selectedFacility.usefulInfo.equipmentOptions.map((item, index) => (
+                <React.Fragment key={item.name}>
+                  {index > 0 && <hr className="sc-separator" />}
+                  <div className="sc-equipment-row">
+                    <span>{item.name}</span>
+                    <strong>{formatAmount(item.price)} RON</strong>
+                  </div>
+                </React.Fragment>
+              ))}
+            </section>
+
+            <section className="sc-contact-box">
+              <div className="sc-contact-row">
+                <span className="sc-phone-badge"><img src={iconPhoneWhite} alt="" /></span>
+                <span>
+                  Pentru mai multe detalii, sunați la {selectedFacility.contactPhone || 'recepția bazei sportive'}
+                </span>
+              </div>
+              {/* „Ajutor" va deschide ghidul de utilizare (KAN-63) */}
+              <button type="button" className="sc-btn-secondary">
+                Ajutor
+                <img src={iconInfoDark} alt="" className="sc-btn-icon" />
+              </button>
+            </section>
+
+            <button type="button" className="sc-btn-primary" onClick={openChooseDateTime}>
+              Rezervă · alege data și ora
+              <img src={iconArrowDark} alt="" />
             </button>
+            <p className="sc-muted-note sc-center">Vei vedea disponibilitatea înainte de plată.</p>
           </div>
         )}
 
-        {/* ---------------- 05. ALEGE DATA ȘI ORA ---------------- */}
-        {currentScreen === 'choose_datetime' && selectedFacility && (
-          <div>
-            <div className="calendar-card">
-              <div className="calendar-header">
-                <span>‹</span>
-                <span>Octombrie 2026</span>
-                <span>›</span>
-              </div>
+        {/* ---------------- 05 / 05b. ALEGE DATA ȘI ORA (Figma 05, 05b) ---------------- */}
+        {currentScreen === 'choose_datetime' && selectedFacility && (() => {
+          const todayIso = toIsoDate(new Date());
+          const cells = buildMonthCells(calendarMonth.year, calendarMonth.month);
+          const weeks = [];
+          for (let i = 0; i < cells.length; i += 7) {
+            weeks.push(cells.slice(i, i + 7));
+          }
+          const noSlots = !availability.loading && !availability.error && availability.slots.length === 0;
+          const isFreeDayEmpty = !availability.loading && !availability.error &&
+            availability.slots.length > 0 && availability.slots.every((slot) => !slot.isAvailable);
+          const canContinue = Boolean(selectedSlot) && !availability.loading;
+          const monthTitle = `${MONTHS_RO[calendarMonth.month][0].toUpperCase()}${MONTHS_RO[calendarMonth.month].slice(1)} ${calendarMonth.year}`;
 
-              <div className="calendar-grid">
-                {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map(day => (
-                  <div key={day} className="calendar-day-header">{day}</div>
-                ))}
-                {[...Array(4)].map((_, i) => <div key={`empty-${i}`} className="calendar-day-btn inactive"></div>)}
-                {[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31].map(d => (
-                  <button 
-                    key={d} 
-                    className={`calendar-day-btn ${selectedDate === d ? 'selected' : ''}`}
-                    onClick={() => setSelectedDate(d)}
-                  >
-                    {d}
+          return (
+            <div className="sc-stack">
+              <button type="button" className="sc-back-link" onClick={() => setCurrentScreen('facility_detail')}>
+                <img src={iconBackBlue} alt="" />
+                Detalii facilitate
+              </button>
+
+              <section className="sc-calendar">
+                <div className="sc-calendar-head">
+                  <button type="button" className="sc-month-btn" onClick={() => changeCalendarMonth(-1)} aria-label="Luna precedentă">
+                    <img src={iconChevronLeft} alt="" />
                   </button>
+                  <span>{monthTitle}</span>
+                  <button type="button" className="sc-month-btn" onClick={() => changeCalendarMonth(1)} aria-label="Luna următoare">
+                    <img src={iconChevronRight} alt="" />
+                  </button>
+                </div>
+                <div className="sc-calendar-row sc-weekdays">
+                  {WEEKDAY_HEADERS.map((day) => <span key={day}>{day}</span>)}
+                </div>
+                {weeks.map((week, weekIndex) => (
+                  <div key={weekIndex} className="sc-calendar-row">
+                    {week.map((isoDate, dayIndex) => {
+                      if (!isoDate) {
+                        return <span key={`gol-${dayIndex}`} className="sc-day empty" />;
+                      }
+                      const isPast = isoDate < todayIso;
+                      const classes = ['sc-day'];
+                      if (isPast) classes.push('past');
+                      if (isoDate === todayIso) classes.push('today');
+                      if (isoDate === selectedDate) classes.push('selected');
+                      return (
+                        <button
+                          key={isoDate}
+                          type="button"
+                          className={classes.join(' ')}
+                          disabled={isPast}
+                          onClick={() => selectCalendarDay(isoDate)}
+                        >
+                          {Number(isoDate.slice(8))}
+                        </button>
+                      );
+                    })}
+                  </div>
                 ))}
-              </div>
-            </div>
+              </section>
 
-            <div style={{ marginBottom: '14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 800 }}>Selectat: marți, {selectedDate} octombrie 2026</span>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                <div 
-                  className={`time-slot-card ${selectedSlot === '14:00 - 15:00' ? 'selected' : ''}`}
-                  onClick={() => setSelectedSlot('14:00 - 15:00')}
-                >
-                  <span style={{ fontSize: '12px', fontWeight: 800 }}>14:00 - 15:00</span>
-                  <span style={{ fontSize: '10px', opacity: 0.8 }}>🟢 Liber · 12 locuri</span>
-                </div>
-
-                <div className="time-slot-card busy">
-                  <span style={{ fontSize: '12px', fontWeight: 800 }}>15:00 - 16:00</span>
-                  <span style={{ fontSize: '10px' }}>🟡 Ocupat · 0 locuri</span>
-                </div>
-
-                <div 
-                  className={`time-slot-card ${selectedSlot === '16:00 - 17:00' ? 'selected' : ''}`}
-                  onClick={() => setSelectedSlot('16:00 - 17:00')}
-                >
-                  <span style={{ fontSize: '12px', fontWeight: 800 }}>16:00 - 17:00</span>
-                  <span style={{ fontSize: '10px', opacity: 0.8 }}>⚫ Selectat · 4/12 locuri</span>
-                </div>
-
-                <div 
-                  className={`time-slot-card ${selectedSlot === '17:00 - 18:00' ? 'selected' : ''}`}
-                  onClick={() => setSelectedSlot('17:00 - 18:00')}
-                >
-                  <span style={{ fontSize: '12px', fontWeight: 800 }}>17:00 - 18:00</span>
-                  <span style={{ fontSize: '10px', opacity: 0.8 }}>🟢 Liber · 8 locuri</span>
+              <div className="sc-selected-day">
+                <strong>Selectat: {formatLongDate(selectedDate)}</strong>
+                <div className="sc-legend">
+                  <span><img src={dotLegendFree} alt="" />Liber</span>
+                  <span><img src={dotLegendBusy} alt="" />Ocupat</span>
+                  <span><img src={dotLegendSelected} alt="" />Selectat</span>
                 </div>
               </div>
-            </div>
 
-            <div className="info-section-box" style={{ padding: '10px 14px', marginBottom: '18px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                <input 
-                  type="checkbox" 
-                  checked={addEquipment}
-                  onChange={(e) => setAddEquipment(e.target.checked)}
-                  style={{ width: '16px', height: '16px', accentColor: 'var(--primary-green)' }}
-                />
-                <span style={{ fontSize: '12px', fontWeight: 700 }}>Adaugă echipament (+10 RON)</span>
-              </label>
-            </div>
+              {availability.loading && <p className="sc-muted-note">Se încarcă intervalele…</p>}
 
-            <button className="btn-figma-green" onClick={() => setCurrentScreen('summary_payment')}>
-              Continuă către rezumat →
-            </button>
-          </div>
-        )}
+              {availability.error && (
+                <div className="sc-alert-error" role="alert">
+                  <img src={iconInfoRed} alt="" />
+                  <span>{availability.error}</span>
+                </div>
+              )}
+
+              {(noSlots || isFreeDayEmpty) && (
+                <div className="sc-warning-box">
+                  <div className="sc-warning-title">
+                    <img src={iconInfoAmber} alt="" />
+                    <strong>Nu există intervale libere în această zi</strong>
+                  </div>
+                  <p>Alege altă dată din calendar pentru a vedea intervalele disponibile.</p>
+                </div>
+              )}
+
+              {availability.slots.length > 0 && !isFreeDayEmpty && (
+                <>
+                  <div className="sc-slots">
+                    {availability.slots.map((slot) => {
+                      const isSelected = selectedSlot && selectedSlot.startTime === slot.startTime;
+                      const state = isSelected ? 'selected' : slot.isAvailable ? 'free' : 'busy';
+                      const dot = state === 'selected' ? dotSlotSelected : state === 'free' ? dotSlotFree : dotSlotBusy;
+                      return (
+                        <button
+                          key={slot.startTime}
+                          type="button"
+                          className={`sc-slot ${state}`}
+                          disabled={!slot.isAvailable}
+                          onClick={() => setSelectedSlot(slot)}
+                        >
+                          <span className="sc-slot-time">{slot.startLabel}–{slot.endLabel}</span>
+                          <span className="sc-slot-status">
+                            <img src={dot} alt="" />
+                            {slotStatusText(slot, isSelected)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="sc-note-box">
+                    <img src={iconInfoBlue} alt="" />
+                    <span>Fără suprapuneri: intervalele ocupate sau care se suprapun cu rezervările tale sunt dezactivate.</span>
+                  </div>
+
+                  <label className="sc-equipment-toggle">
+                    <input
+                      type="checkbox"
+                      checked={addEquipment}
+                      onChange={(e) => setAddEquipment(e.target.checked)}
+                    />
+                    <span className="sc-checkbox" aria-hidden="true">
+                      <img src={iconCheck} alt="" />
+                    </span>
+                    <span className="sc-equipment-text">
+                      <strong>Adaugă {(selectedFacility.usefulInfo.equipmentTitle || 'echipament').toLowerCase()}</strong>
+                      <span>+10 RON</span>
+                    </span>
+                  </label>
+                </>
+              )}
+
+              <button
+                type="button"
+                className={`sc-btn-primary ${canContinue ? '' : 'sc-btn-disabled'}`}
+                disabled={!canContinue}
+                onClick={() => setCurrentScreen('summary_payment')}
+              >
+                Continuă către rezumat
+                <img src={canContinue ? iconArrowDark : iconArrowMuted} alt="" />
+              </button>
+            </div>
+          );
+        })()}
 
         {/* ---------------- 06. REZUMAT ȘI PLATĂ ---------------- */}
         {currentScreen === 'summary_payment' && selectedFacility && (
@@ -941,7 +1567,7 @@ export default function App() {
             <div className="info-section-box">
               <h3 style={{ fontSize: '15px', fontWeight: 800, marginBottom: '2px' }}>{selectedFacility.name}</h3>
               <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '14px' }}>
-                📅 Marți, {selectedDate} octombrie 2026 · ⏰ {selectedSlot} · 60 min
+                📅 {formatLongDate(selectedDate)} · ⏰ {selectedSlot ? `${selectedSlot.startLabel}–${selectedSlot.endLabel}` : ''} · {selectedFacility.slotMinutes || 60} min
               </p>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0' }}>
@@ -1292,39 +1918,29 @@ export default function App() {
       )}
 
       {/* ================= BOTTOM NAVIGATION TABS (FIGMA EXACT) ================= */}
-      <nav className="figma-bottom-nav">
-        <button 
-          className={`nav-link-btn ${currentScreen === 'facilities' || currentScreen === 'facility_detail' || currentScreen === 'choose_datetime' || currentScreen === 'summary_payment' ? 'active' : ''}`}
-          onClick={() => setCurrentScreen('facilities')}
-        >
-          <span className="nav-icon">🏟️</span>
-          <span>Facilități</span>
-        </button>
-
-        <button 
-          className={`nav-link-btn ${currentScreen === 'map' ? 'active' : ''}`}
-          onClick={() => setCurrentScreen('map')}
-        >
-          <span className="nav-icon">📍</span>
-          <span>Hartă</span>
-        </button>
-
-        <button 
-          className={`nav-link-btn ${currentScreen === 'my_bookings' || currentScreen === 'confirmed_ticket' ? 'active' : ''}`}
-          onClick={() => setCurrentScreen('my_bookings')}
-        >
-          <span className="nav-icon">🎟️</span>
-          <span>Rezervări</span>
-        </button>
-
-        <button 
-          className={`nav-link-btn ${currentScreen === 'admin' ? 'active' : ''}`}
-          onClick={() => { setCurrentScreen('admin'); fetchFacilitiesFromBackend(); fetchUsersFromBackend(); }}
-        >
-          <span className="nav-icon">⚙️</span>
-          <span>Admin</span>
-        </button>
-      </nav>
+      {/* Bara de jos nu apare pe ecranele de autentificare (Figma 01 și 02) */}
+      {!AUTH_SCREENS.includes(currentScreen) && (
+        <nav className="figma-bottom-nav sc-nav">
+          {[
+            { label: 'Facilități', icon: navGrid, screens: ['facilities', 'facility_detail', 'choose_datetime', 'summary_payment'], onClick: () => setCurrentScreen('facilities') },
+            { label: 'Hartă', icon: navMap, screens: ['map'], onClick: () => setCurrentScreen('map') },
+            { label: 'Rezervările mele', icon: navCalendar, screens: ['my_bookings', 'confirmed_ticket'], onClick: () => setCurrentScreen('my_bookings') },
+            { label: 'Cont', icon: navUser, screens: ['admin'], onClick: openAccount }
+          ].map((tab) => (
+            <button
+              key={tab.label}
+              className={`sc-nav-tab ${tab.screens.includes(currentScreen) ? 'active' : ''}`}
+              onClick={tab.onClick}
+            >
+              <span className="sc-nav-pill">
+                {/* Ghilimelele sunt necesare: iconițele mici sunt incluse ca text (data URL) cu spații și caractere speciale */}
+                <span className="sc-nav-icon" style={{ '--icon': `url("${tab.icon}")` }} />
+              </span>
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </nav>
+      )}
     </div>
   );
 }
