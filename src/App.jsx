@@ -1933,7 +1933,8 @@ export default function App() {
               onClick={tab.onClick}
             >
               <span className="sc-nav-pill">
-                <span className="sc-nav-icon" style={{ '--icon': `url(${tab.icon})` }} />
+                {/* Ghilimelele sunt necesare: iconițele mici sunt incluse ca text (data URL) cu spații și caractere speciale */}
+                <span className="sc-nav-icon" style={{ '--icon': `url("${tab.icon}")` }} />
               </span>
               <span>{tab.label}</span>
             </button>
