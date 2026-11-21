@@ -27,6 +27,9 @@ const AUTH_SCREENS = ['login', 'register'];
 const AUTH_STORAGE_KEY = 'sc_auth';
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const MIN_PASSWORD_LENGTH = 8;
+// Aceeași regulă ca în backend (POST /auth/register): cel puțin o literă și o cifră
+const PASSWORD_LETTER = /[A-Za-zĂÂÎȘȚăâîșț]/;
+const PASSWORD_DIGIT = /\d/;
 
 // Tokenul și utilizatorul salvate după login, ca să rămâi autentificat după reîncărcarea paginii
 const readStoredAuth = () => {
@@ -554,6 +557,8 @@ export default function App() {
     }
     if (registerForm.password.length < MIN_PASSWORD_LENGTH) {
       errors.password = `Parola trebuie să aibă minimum ${MIN_PASSWORD_LENGTH} caractere`;
+    } else if (!PASSWORD_LETTER.test(registerForm.password) || !PASSWORD_DIGIT.test(registerForm.password)) {
+      errors.password = 'Parola trebuie să conțină cel puțin o literă și o cifră';
     }
     if (!registerForm.acceptedTerms) {
       errors.terms = 'Trebuie să accepți termenii pentru a crea contul';
