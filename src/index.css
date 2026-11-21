@@ -1617,3 +1617,272 @@ body.dark .sc-nav-tab.active span:last-child { color: var(--sc-lime); }
   opacity: 1;
   cursor: not-allowed;
 }
+
+/* =====================================================================
+   STIL FIGMA – KAN-54: Rezumat și plată, Plată eșuată, Rezervare confirmată (06, 06b, 07)
+   ===================================================================== */
+.sc-facility-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.sc-facility-heading strong {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--sc-text);
+}
+
+/* Iconița categoriei e folosită ca mască, colorată după categorie (Înot, Relaxare, Sporturi) */
+.sc-category-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 20px;
+}
+.sc-category-badge span {
+  width: 22px;
+  height: 22px;
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
+}
+.sc-category-badge.swim { background-color: #ddf6fa; }
+.sc-category-badge img { width: 22px; height: 22px; }
+.sc-category-badge.relax { background-color: var(--sc-promo-bg); }
+.sc-category-badge.relax span { background-color: var(--sc-relax); }
+.sc-category-badge.sport { background-color: #dff7ea; }
+.sc-category-badge.sport span { background-color: var(--sc-sport); }
+
+.sc-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sc-text);
+}
+.sc-meta-row img { width: 18px; height: 18px; flex-shrink: 0; }
+
+.sc-amount-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+.sc-amount-row span { font-weight: 500; color: var(--sc-text-2); }
+.sc-amount-row strong { font-weight: 700; color: var(--sc-text); }
+.sc-amount-row .sc-amount-discount { color: var(--sc-muted); }
+.sc-amount-row .sc-amount-strong { font-size: 15px; font-weight: 800; }
+
+.sc-total-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--sc-text);
+}
+.sc-total-row > span:first-child { font-size: 16px; font-weight: 800; }
+.sc-total-sum {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.sc-total-sum strong { font-size: 26px; font-weight: 800; }
+.sc-total-sum span { font-size: 12px; font-weight: 600; color: var(--sc-muted); }
+
+.sc-processor {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px;
+  border-radius: 14px;
+  background-color: #e8f0ff;
+  color: var(--sc-navy);
+  font-size: 14px;
+  font-weight: 700;
+}
+.sc-processor span { display: flex; align-items: center; gap: 10px; }
+.sc-processor span img { width: 18px; height: 18px; }
+.sc-processor > img { width: 16px; height: 16px; }
+
+.sc-panel-text {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19px;
+  color: var(--sc-text-2);
+}
+
+/* Figma 06b */
+.sc-panel.sc-status-card {
+  align-items: center;
+  padding: 22px;
+  text-align: center;
+}
+.sc-status-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 36px;
+  background-color: #fde4e5;
+}
+.sc-status-badge img { width: 36px; height: 36px; }
+.sc-status-card h3 { margin: 0; font-size: 20px; font-weight: 800; color: var(--sc-text); }
+.sc-status-card p { margin: 0; font-size: 14px; font-weight: 500; line-height: 21px; color: var(--sc-text-2); }
+
+.sc-panel.sc-panel-outline {
+  border: 1px solid var(--sc-nav-border);
+  box-shadow: none;
+}
+.sc-panel-outline .sc-facility-heading strong { font-size: 16px; }
+.sc-panel-outline .sc-category-badge span,
+.sc-panel-outline .sc-category-badge img { width: 20px; height: 20px; }
+
+/* Figma 07: biletul cu perforație și codul de acces */
+.sc-ticket {
+  display: flex;
+  flex-direction: column;
+  border-radius: 22px;
+  background-color: var(--sc-card);
+  box-shadow: var(--sc-shadow);
+  overflow: hidden;
+}
+.sc-ticket-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+}
+.sc-ticket-perforation {
+  height: 2px;
+  margin: 0 18px;
+  border-top: 1.5px dashed var(--sc-border);
+}
+.sc-ticket-code {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  border: none;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.sc-ticket-code.enlarged {
+  flex-direction: column;
+  text-align: center;
+}
+.sc-qr-box {
+  display: flex;
+  flex-shrink: 0;
+  padding: 8px;
+  border: 1px solid var(--sc-nav-border);
+  border-radius: 12px;
+  background-color: #ffffff;
+}
+.sc-qr-box img { display: block; width: 97px; height: 97px; }
+.sc-ticket-code.enlarged .sc-qr-box img { width: 240px; height: 240px; }
+.sc-qr-fallback {
+  width: 97px;
+  font-size: 10px;
+  font-weight: 600;
+  word-break: break-all;
+  color: var(--sc-navy);
+}
+.sc-ticket-code-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sc-ticket-code-text strong { font-size: 16px; font-weight: 800; color: var(--sc-text); }
+.sc-ticket-code-text span { font-size: 13px; font-weight: 500; line-height: 19px; color: var(--sc-text-2); }
+
+.sc-reminder-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border: 1px solid var(--sc-nav-border);
+  border-radius: 18px;
+  background-color: var(--sc-card);
+}
+.sc-reminder-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--sc-text);
+}
+.sc-bell-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 18px;
+  background-color: #e8f0ff;
+}
+.sc-bell-badge img { width: 20px; height: 20px; }
+.sc-switch-img { width: 44px; height: 24px; }
+/* Comutatorul oprit (în Figma apare doar cel pornit) */
+.sc-switch-off {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background-color: #e3e9f1;
+}
+.sc-switch-off::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  background-color: #ffffff;
+}
+
+.sc-howto {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+  border-radius: 22px;
+  background-color: #e8f0ff;
+  color: var(--sc-navy);
+}
+.sc-howto h3 { margin: 0; font-size: 16px; font-weight: 800; }
+.sc-howto p { margin: 0; font-size: 13px; font-weight: 500; line-height: 19px; }
+
+.sc-btn-dark,
+.sc-btn-danger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 16px;
+  border-radius: 16px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.sc-btn-dark {
+  border: none;
+  background-color: var(--sc-navy);
+  color: #ffffff;
+}
+.sc-btn-dark img { width: 18px; height: 18px; }
+.sc-btn-danger {
+  border: 1.5px solid #f4b9bb;
+  background-color: var(--sc-card);
+  color: #e5484d;
+}
