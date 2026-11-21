@@ -1256,3 +1256,364 @@ body.dark .sc-nav-tab.active span:last-child { color: var(--sc-lime); }
 }
 .sc-consent input:checked + .sc-checkbox img { visibility: visible; }
 .sc-consent input:focus-visible + .sc-checkbox { outline: 2px solid #2563eb; outline-offset: 2px; }
+
+/* =====================================================================
+   STIL FIGMA – KAN-52: Detalii facilitate și Alege data și ora (04, 05, 05b)
+   ===================================================================== */
+
+.sc-back-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #2563eb;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.sc-back-link img { width: 16px; height: 16px; }
+
+.sc-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 22px;
+  background-color: var(--sc-card);
+  box-shadow: var(--sc-shadow);
+}
+.sc-panel.sc-panel-tight { gap: 12px; }
+
+.sc-panel-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--sc-text);
+}
+
+.sc-info-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sc-info-badge {
+  display: flex;
+  flex-shrink: 0;
+  padding: 10px;
+  border-radius: 14px;
+  background-color: #ddf6fa;
+}
+.sc-info-badge img { width: 20px; height: 20px; }
+
+.sc-info-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.sc-info-text span { font-size: 12px; font-weight: 600; color: var(--sc-muted); }
+.sc-info-text strong { font-size: 14px; font-weight: 700; color: var(--sc-text); }
+
+.sc-separator {
+  width: 100%;
+  height: 1px;
+  margin: 0;
+  border: none;
+  background-color: var(--sc-nav-border);
+}
+
+.sc-price-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sc-text-2);
+}
+.sc-price .sc-price-large { font-size: 20px; }
+
+.sc-muted-note {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sc-muted);
+}
+.sc-muted-note.sc-center { text-align: center; }
+
+.sc-promo-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  background-color: var(--sc-promo-bg);
+  color: var(--sc-promo-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+.sc-promo-box img { width: 20px; height: 20px; flex-shrink: 0; }
+
+.sc-rule {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--sc-text-2);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.sc-rule-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  background-color: #ddf7ea;
+}
+.sc-rule-badge img { width: 13px; height: 13px; }
+
+.sc-equipment-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+}
+.sc-equipment-row span { font-weight: 500; color: var(--sc-text-2); }
+.sc-equipment-row strong { font-weight: 700; color: var(--sc-text); }
+
+.sc-contact-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 22px;
+  background-color: #e8f0ff;
+}
+
+.sc-contact-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--sc-navy);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.sc-phone-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 20px;
+  background-color: var(--sc-navy);
+}
+.sc-phone-badge img { width: 22px; height: 22px; }
+
+.sc-btn-secondary .sc-btn-icon { width: 18px; height: 18px; }
+
+/* ---------- Calendar ---------- */
+.sc-calendar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 22px;
+  background-color: var(--sc-card);
+  box-shadow: var(--sc-shadow);
+}
+
+.sc-calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--sc-text);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.sc-month-btn {
+  display: flex;
+  padding: 8px;
+  border: none;
+  border-radius: 12px;
+  background-color: var(--sc-page);
+  cursor: pointer;
+}
+.sc-month-btn img { width: 16px; height: 16px; }
+
+.sc-calendar-row {
+  display: flex;
+  gap: 4px;
+}
+.sc-calendar-row > * { flex: 1 0 0; min-width: 0; }
+
+.sc-weekdays span {
+  text-align: center;
+  color: var(--sc-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sc-day {
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  color: var(--sc-text);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sc-day.empty { cursor: default; }
+.sc-day.past { color: #c5cfdc; cursor: default; }
+.sc-day.today { border: 1.5px solid #2563eb; color: #2563eb; font-weight: 800; }
+.sc-day.selected { border: none; background-color: var(--sc-navy); color: #fff; font-weight: 800; }
+
+.sc-selected-day {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sc-selected-day strong { font-size: 15px; font-weight: 800; color: var(--sc-text); }
+
+.sc-legend {
+  display: flex;
+  gap: 16px;
+}
+.sc-legend span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--sc-text-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+.sc-legend img { width: 10px; height: 10px; }
+
+/* ---------- Intervale orare ---------- */
+.sc-slots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.sc-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 14px;
+  border: 1.5px solid var(--sc-border);
+  border-radius: 16px;
+  background-color: var(--sc-card);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sc-slot-time { color: var(--sc-text); font-size: 15px; font-weight: 800; }
+
+.sc-slot-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--sc-text-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+.sc-slot-status img { width: 8px; height: 8px; flex-shrink: 0; }
+
+.sc-slot.busy {
+  border-color: transparent;
+  background-color: #eef1f6;
+  cursor: default;
+}
+.sc-slot.busy .sc-slot-time { color: var(--sc-muted); text-decoration: line-through; }
+.sc-slot.busy .sc-slot-status { color: var(--sc-muted); }
+
+.sc-slot.selected {
+  border-color: var(--sc-navy);
+  background-color: var(--sc-navy);
+}
+.sc-slot.selected .sc-slot-time { color: #fff; }
+.sc-slot.selected .sc-slot-status { color: var(--sc-lime); }
+
+.sc-note-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  background-color: #e8f0ff;
+  color: var(--sc-navy);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+}
+.sc-note-box img { width: 18px; height: 18px; flex-shrink: 0; }
+
+.sc-warning-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid #f6d58a;
+  border-radius: 18px;
+  background-color: #fef3d6;
+  color: #7c2d12;
+}
+.sc-warning-box p { margin: 0; font-size: 13px; font-weight: 500; }
+
+.sc-warning-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 800;
+}
+.sc-warning-title img { width: 22px; height: 22px; flex-shrink: 0; }
+
+/* Bifa pentru echipament: aceeași căsuță ca la Creare cont */
+.sc-equipment-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--sc-nav-border);
+  border-radius: 18px;
+  background-color: var(--sc-card);
+  cursor: pointer;
+}
+.sc-equipment-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.sc-equipment-toggle input:checked + .sc-checkbox { border-color: var(--sc-navy); background-color: var(--sc-navy); }
+.sc-equipment-toggle input:checked + .sc-checkbox img { visibility: visible; }
+
+.sc-equipment-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sc-equipment-text strong { font-size: 14px; font-weight: 700; color: var(--sc-text); }
+.sc-equipment-text span { font-size: 13px; font-weight: 500; color: var(--sc-muted); }
+
+/* Buton principal dezactivat (Figma 05b) */
+.sc-btn-primary.sc-btn-disabled,
+.sc-btn-primary.sc-btn-disabled:disabled {
+  background-color: #e3e9f1;
+  box-shadow: none;
+  color: var(--sc-muted);
+  opacity: 1;
+  cursor: not-allowed;
+}
