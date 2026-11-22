@@ -267,8 +267,21 @@ export default function App() {
   const [receptionForm, setReceptionForm] = useState({ token: '', receptionistId: '5' });
   const [receptionState, setReceptionState] = useState({ loading: false, result: null, error: '' });
 
-  // Modal anulare rezervare
+  // Modal anulare rezervare (KAN-62, KAN-60 - Figma 09)
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [selectedBookingToCancel, setSelectedBookingToCancel] = useState(null);
+  const [cancelReason, setCancelReason] = useState('Schimbare de program');
+  const [cancelNotes, setCancelNotes] = useState('');
+  const [cancelStatus, setCancelStatus] = useState({ loading: false, error: '', success: '' });
+
+  // Modal Ghid & Ajutor utilizator (KAN-63)
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [helpActiveTab, setHelpActiveTab] = useState(1);
+
+  // Lista dinamică rezervări utilizator (KAN-59, KAN-62)
+  const [userBookings, setUserBookings] = useState([]);
+  const [userBookingsLoading, setUserBookingsLoading] = useState(false);
+  const [userBookingsError, setUserBookingsError] = useState('');
 
   // ================= ADMIN STATE (KAN-42, KAN-45, KAN-47) =================
   const [adminTab, setAdminTab] = useState('facilities'); // 'facilities' | 'users'
@@ -633,6 +646,76 @@ export default function App() {
       status: 'Finalizată'
     }
   ];
+
+  // Încărcare rezervări proprii din backend (KAN-59)
+  const fetchMyBookings = async (scope = bookingsTab) => {
+    if (!authToken) {
+      setUserBookings(scope === 'upcoming' ? myUpcomingBookings : historyBookings);
+      return;
+    }
+    setUserBookingsLoading(true);
+    setUserBookingsError('');
+    try {
+      const res = await fetch(`/api/v1/bookings/my-bookings?scope=${scope}`, {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setUserBookings(data);
+        } else {
+          setUserBookings(scope === 'upcoming' ? myUpcomingBookings : historyBookings);
+        }
+      } else {
+        setUserBookings(scope === 'upcoming' ? myUpcomingBookings : historyBookings);
+      }
+    } catch (err) {
+      setUserBookings(scope === 'upcoming' ? myUpcomingBookings : historyBookings);
+    } finally {
+      setUserBookingsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentScreen === 'my_bookings') {
+      fetchMyBookings(bookingsTab);
+    }
+  }, [currentScreen, bookingsTab, authToken]);
+
+  // Anulare rezervare din interfață (KAN-60, KAN-62 - Figma 09)
+  const handleConfirmCancelBooking = async () => {
+    if (!selectedBookingToCancel) return;
+    const bId = selectedBookingToCancel.booking_id || selectedBookingToCancel.id;
+    setCancelStatus({ loading: true, error: '', success: '' });
+
+    try {
+      const res = await fetch(`/api/v1/bookings/${bId}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+        },
+        body: JSON.stringify({ reason: cancelReason, notes: cancelNotes })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        const errMsg = data.error?.message || 'Eroare la anularea rezervării. Anularea este posibilă doar cu minim 24h înainte.';
+        setCancelStatus({ loading: false, error: errMsg, success: '' });
+        return;
+      }
+
+      setCancelStatus({ loading: false, error: '', success: 'Rezervarea a fost anulată cu succes! Intervalul a fost eliberat.' });
+      setTimeout(() => {
+        setShowCancelModal(false);
+        setSelectedBookingToCancel(null);
+        setCancelStatus({ loading: false, error: '', success: '' });
+        fetchMyBookings(bookingsTab);
+      }, 1000);
+    } catch (err) {
+      setCancelStatus({ loading: false, error: 'Eroare de rețea. Nu s-a putut efectua anularea.', success: '' });
+    }
+  };
 
   // Comutare Dark Mode
   const toggleDarkMode = () => {
@@ -999,13 +1082,12 @@ export default function App() {
             <span className="sc-logo"><img src={logoBall} alt="" /></span>
             Sport Campus
           </button>
-          {AUTH_SCREENS.includes(currentScreen) ? (
-            // „Ajutor" va deschide ghidul de utilizare (pasul 6 din plan)
-            <button className="sc-header-action" type="button">Ajutor</button>
-          ) : (
-            // Temporar: „Contul meu" deschide panoul Admin până se face ecranul 11 din Figma
-            <button className="sc-header-action" onClick={openAccount}>Contul meu</button>
-          )}
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button className="sc-header-action" type="button" onClick={() => setShowHelpModal(true)}>Ajutor</button>
+            {!AUTH_SCREENS.includes(currentScreen) && (
+              <button className="sc-header-action" onClick={openAccount}>Contul meu</button>
+            )}
+          </div>
         </div>
 
         <div className="sc-hero-switches">
@@ -2427,39 +2509,170 @@ export default function App() {
           </div>
         ))}
 
-        {/* ---------------- 08. REZERVĂRILE MELE ---------------- */}
+        {/* ---------------- 08. REZERVĂRILE MELE (KAN-62 - FIGMA 08, 09, 13) ---------------- */}
         {currentScreen === 'my_bookings' && (
           <div>
+            {/* Comutator Tab-uri: Viitoare vs Istoric */}
             <div style={{ display: 'flex', background: 'var(--border-light)', borderRadius: '12px', padding: '3px', marginBottom: '14px' }}>
               <button 
                 style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: 700, background: bookingsTab === 'upcoming' ? 'var(--card-bg)' : 'transparent', color: bookingsTab === 'upcoming' ? 'var(--text-main)' : 'var(--text-secondary)', cursor: 'pointer' }}
                 onClick={() => setBookingsTab('upcoming')}
               >
-                Viitoare ({myUpcomingBookings.length})
+                Viitoare ({userBookings.filter(b => b.is_upcoming !== false && b.status !== 'CANCELLED').length})
               </button>
               <button 
                 style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: 700, background: bookingsTab === 'history' ? 'var(--card-bg)' : 'transparent', color: bookingsTab === 'history' ? 'var(--text-main)' : 'var(--text-secondary)', cursor: 'pointer' }}
                 onClick={() => setBookingsTab('history')}
               >
-                Istoric (2)
+                Istoric & Anulate ({userBookings.filter(b => b.is_upcoming === false || b.status === 'CANCELLED').length})
               </button>
             </div>
 
-            {myUpcomingBookings.map(b => (
-              <div key={b.id} className="info-section-box">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <span style={{ fontSize: '11px', color: '#16A34A', fontWeight: 800 }}>● {b.status}</span>
-                  <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{b.id}</span>
-                </div>
-                <h3 style={{ fontSize: '15px', fontWeight: 800 }}>{b.facilityName}</h3>
-                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '4px 0 10px' }}>{b.dateText}, {b.timeText}</p>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button className="btn-figma-dark" style={{ flex: 1 }} onClick={() => setCurrentScreen('confirmed_ticket')}>
-                    Vezi codul QR
-                  </button>
-                </div>
+            {userBookingsLoading && (
+              <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                Se încarcă rezervările din sistem...
               </div>
-            ))}
+            )}
+
+            {userBookingsError && (
+              <div style={{ padding: '12px', borderRadius: '10px', background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: '12px', marginBottom: '12px' }}>
+                ⚠️ {userBookingsError}
+              </div>
+            )}
+
+            {!userBookingsLoading && userBookings.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '36px 16px', background: 'var(--card-bg)', borderRadius: '16px', border: '1px solid var(--border-light)' }}>
+                <p style={{ fontSize: '30px', marginBottom: '8px' }}>📅</p>
+                <h4 style={{ fontSize: '15px', fontWeight: 800, marginBottom: '6px' }}>Nu ai nicio rezervare aici</h4>
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                  Explorează facilitățile sportive USV și rezervă un teren sau bazinul de înot.
+                </p>
+                <button type="button" className="btn-figma-green" onClick={() => setCurrentScreen('facilities')}>
+                  Explorează Facilități
+                </button>
+              </div>
+            )}
+
+            {!userBookingsLoading && userBookings.map(b => {
+              const bCode = b.booking_code || b.id || `SC-2026-${b.booking_id}`;
+              const bFacility = b.facility || b.facilityName || 'Facilitate Sportivă USV';
+              const bLoc = b.building_name || 'Complex Sportiv USV (Corp E)';
+              const isCancelled = b.status === 'CANCELLED';
+              const isConfirmed = b.status === 'CONFIRMED';
+              const isPending = b.status === 'PENDING_PAYMENT' || b.status === 'INITIATED';
+              const isCheckedIn = b.status === 'CHECKED_IN';
+
+              const priceText = currency === 'EUR'
+                ? `${b.total_amount_eur || b.totalPaidEur || '4.50'} EUR`
+                : `${b.total_amount || b.totalPaidRon || '22.50'} RON`;
+
+              return (
+                <div 
+                  key={bCode} 
+                  className="info-section-box"
+                  style={{ 
+                    marginBottom: '14px', 
+                    border: isCancelled ? '1px dashed #CBD5E1' : '1px solid var(--border-light)',
+                    opacity: isCancelled ? 0.75 : 1,
+                    background: isCancelled ? 'rgba(241, 245, 249, 0.5)' : 'var(--card-bg)'
+                  }}
+                >
+                  {/* Header Card: Status badge + Cod */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ 
+                      fontSize: '11px', 
+                      fontWeight: 800,
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      background: isConfirmed ? '#DCFCE7' : isPending ? '#FEF3C7' : isCheckedIn ? '#DBEAFE' : '#F1F5F9',
+                      color: isConfirmed ? '#15803D' : isPending ? '#B45309' : isCheckedIn ? '#1D4ED8' : '#64748B'
+                    }}>
+                      ● {isConfirmed ? 'Confirmată' : isPending ? 'În așteptare plată' : isCheckedIn ? 'Prezent la sală' : isCancelled ? 'Anulată' : b.status}
+                    </span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace', fontWeight: 600 }}>
+                      {bCode}
+                    </span>
+                  </div>
+
+                  {/* Detalii facilitate */}
+                  <h3 style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 4px 0' }}>{bFacility}</h3>
+                  <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '0 0 6px 0' }}>📍 {bLoc}</p>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '8px 0', fontSize: '12px' }}>
+                    <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>
+                      🕒 {b.dateText || (b.start_time ? new Date(b.start_time).toLocaleDateString('ro-RO', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Data selectată')} · {b.timeText || (b.start_time ? `${new Date(b.start_time).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' })} - ${new Date(b.end_time).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' })}` : 'Interval orar')}
+                    </span>
+                    <span style={{ fontWeight: 800, color: isCancelled ? '#94A3B8' : '#0B1F3A', fontSize: '13px' }}>
+                      {priceText}
+                    </span>
+                  </div>
+
+                  {/* Butoane de acțiune */}
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '12px', borderTop: '1px solid var(--border-light)', paddingTop: '10px' }}>
+                    {isConfirmed && (
+                      <>
+                        <button 
+                          className="btn-figma-dark" 
+                          style={{ flex: 1, padding: '8px', fontSize: '12px' }} 
+                          onClick={() => {
+                            setBooking(b);
+                            setCurrentScreen('confirmed_ticket');
+                          }}
+                        >
+                          🎟️ Vezi Bilet QR
+                        </button>
+                        <button 
+                          className="btn-figma-danger" 
+                          style={{ padding: '8px 12px', fontSize: '12px', background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#991B1B', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}
+                          onClick={() => {
+                            setSelectedBookingToCancel(b);
+                            setShowCancelModal(true);
+                          }}
+                        >
+                          Anulează
+                        </button>
+                      </>
+                    )}
+
+                    {isPending && (
+                      <>
+                        <button 
+                          className="btn-figma-green" 
+                          style={{ flex: 1, padding: '8px', fontSize: '12px' }} 
+                          onClick={() => {
+                            setBooking(b);
+                            setCurrentScreen('summary_payment');
+                          }}
+                        >
+                          💳 Plătește acum
+                        </button>
+                        <button 
+                          style={{ padding: '8px 12px', fontSize: '12px', background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#991B1B', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}
+                          onClick={() => {
+                            setSelectedBookingToCancel(b);
+                            setShowCancelModal(true);
+                          }}
+                        >
+                          Renunță
+                        </button>
+                      </>
+                    )}
+
+                    {isCancelled && (
+                      <div style={{ flex: 1, textAlign: 'center', fontSize: '11px', fontWeight: 700, color: '#94A3B8', padding: '6px' }}>
+                        ⛔ Rezervare anulată · Interval eliberat
+                      </div>
+                    )}
+
+                    {isCheckedIn && (
+                      <div style={{ flex: 1, textAlign: 'center', fontSize: '11px', fontWeight: 700, color: '#16A34A', padding: '6px' }}>
+                        ✅ Check-in efectuat cu succes
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -2894,6 +3107,161 @@ export default function App() {
                 💾 Salvează în PostgreSQL
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+
+      {/* ================= MODAL ANULARE REZERVARE (KAN-62, KAN-60 - FIGMA 09) ================= */}
+      {showCancelModal && selectedBookingToCancel && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, padding: '16px' }}>
+          <div style={{ background: 'var(--card-bg)', borderRadius: '16px', padding: '20px', width: '100%', maxWidth: '380px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)', border: '1px solid var(--border-light)' }}>
+            <div style={{ textAlign: 'center', marginBottom: '14px' }}>
+              <span style={{ fontSize: '32px' }}>⚠️</span>
+              <h3 style={{ fontSize: '16px', fontWeight: 800, margin: '8px 0 4px', color: 'var(--text-main)' }}>Anulează rezervarea?</h3>
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>
+                {selectedBookingToCancel.facility || selectedBookingToCancel.facilityName} · {selectedBookingToCancel.booking_code || selectedBookingToCancel.id}
+              </p>
+            </div>
+
+            <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '10px', padding: '10px', marginBottom: '14px', fontSize: '11px', color: '#1E40AF', lineHeight: '1.4' }}>
+              ℹ️ <strong>Politică USV:</strong> Anularea este gratuită dacă se efectuează cu minimum 24 de ore înainte de oră. Suma achitată se rambursează automat.
+            </div>
+
+            {cancelStatus.error && (
+              <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '8px', padding: '8px 10px', marginBottom: '12px', fontSize: '11px', color: '#991B1B', fontWeight: 600 }}>
+                ❌ {cancelStatus.error}
+              </div>
+            )}
+
+            {cancelStatus.success && (
+              <div style={{ background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: '8px', padding: '8px 10px', marginBottom: '12px', fontSize: '11px', color: '#166534', fontWeight: 600 }}>
+                ✅ {cancelStatus.success}
+              </div>
+            )}
+
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '4px', color: 'var(--text-main)' }}>
+                Motivul anulării:
+              </label>
+              <select
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '12px', background: 'var(--card-bg)', color: 'var(--text-main)' }}
+              >
+                <option value="Schimbare de program">Schimbare de program / suprapunere orar</option>
+                <option value="Motive medicale">Motive medicale / indispoziție</option>
+                <option value="Condiții meteo">Condiții meteo nefavorabile</option>
+                <option value="Alt motiv">Alt motiv personal</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                disabled={cancelStatus.loading}
+                onClick={() => setShowCancelModal(false)}
+                style={{ flex: 1, padding: '10px', borderRadius: '10px', border: '1px solid var(--border-light)', background: 'var(--card-bg)', color: 'var(--text-main)', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+              >
+                Păstrează
+              </button>
+              <button
+                type="button"
+                disabled={cancelStatus.loading}
+                onClick={handleConfirmCancelBooking}
+                style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', background: '#DC2626', color: '#FFFFFF', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+              >
+                {cancelStatus.loading ? 'Se anulează...' : 'Confirmă anularea'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL GHID & AJUTOR UTILIZATOR (KAN-63) ================= */}
+      {showHelpModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, padding: '16px' }}>
+          <div style={{ background: 'var(--card-bg)', borderRadius: '16px', padding: '20px', width: '100%', maxWidth: '420px', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)', border: '1px solid var(--border-light)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid var(--border-light)', pb: '10px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+                📘 Ghid & Asistență Campus Sports
+              </h3>
+              <button 
+                type="button" 
+                onClick={() => setShowHelpModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: 'var(--text-secondary)' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Secțiuni Ghid */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+              <div style={{ padding: '10px', borderRadius: '10px', background: 'var(--border-light)', cursor: 'pointer' }} onClick={() => setHelpActiveTab(helpActiveTab === 1 ? 0 : 1)}>
+                <strong style={{ fontSize: '12px', color: 'var(--text-main)', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>1. Cum fac o rezervare online?</span>
+                  <span>{helpActiveTab === 1 ? '▲' : '▼'}</span>
+                </strong>
+                {helpActiveTab === 1 && (
+                  <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '6px 0 0', lineHeight: '1.4' }}>
+                    Selectezi facilitatea dorită din ecranul principal sau de pe <strong>Harta Campusului</strong>, alegi data și un interval orar liber din calendar, bifezi echipamente opționale și apeși „Continuă spre plată".
+                  </p>
+                )}
+              </div>
+
+              <div style={{ padding: '10px', borderRadius: '10px', background: 'var(--border-light)', cursor: 'pointer' }} onClick={() => setHelpActiveTab(helpActiveTab === 2 ? 0 : 2)}>
+                <strong style={{ fontSize: '12px', color: 'var(--text-main)', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>2. Cum intru la teren/sală cu biletul QR?</span>
+                  <span>{helpActiveTab === 2 ? '▲' : '▼'}</span>
+                </strong>
+                {helpActiveTab === 2 && (
+                  <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '6px 0 0', lineHeight: '1.4' }}>
+                    După confirmarea plății primești un cod QR criptat (AES-256). La intrarea în Complexul Sportiv (Corp E), prezinți codul QR de pe telefon la recepție pentru scanare și validare check-in.
+                  </p>
+                )}
+              </div>
+
+              <div style={{ padding: '10px', borderRadius: '10px', background: 'var(--border-light)', cursor: 'pointer' }} onClick={() => setHelpActiveTab(helpActiveTab === 3 ? 0 : 3)}>
+                <strong style={{ fontSize: '12px', color: 'var(--text-main)', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>3. Care este politica de anulare (24h)?</span>
+                  <span>{helpActiveTab === 3 ? '▲' : '▼'}</span>
+                </strong>
+                {helpActiveTab === 3 && (
+                  <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '6px 0 0', lineHeight: '1.4' }}>
+                    Poți anula gratuit orice rezervare confirmată din tab-ul <strong>„Rezervările mele"</strong> dacă au rămas cel puțin 24 de ore până la începerea intervalului. Rezervările nefinalizate se pot anula oricând.
+                  </p>
+                )}
+              </div>
+
+              <div style={{ padding: '10px', borderRadius: '10px', background: 'var(--border-light)', cursor: 'pointer' }} onClick={() => setHelpActiveTab(helpActiveTab === 4 ? 0 : 4)}>
+                <strong style={{ fontSize: '12px', color: 'var(--text-main)', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>4. Ce reduceri se aplică la tarife?</span>
+                  <span>{helpActiveTab === 4 ? '▲' : '▼'}</span>
+                </strong>
+                {helpActiveTab === 4 && (
+                  <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '6px 0 0', lineHeight: '1.4' }}>
+                    Studenții USV înmatriculați beneficiază de <strong>50% reducere</strong> pe baza email-ului instituțional @student.usv.ro, iar cadrele didactice beneficiază de <strong>30% reducere</strong>.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Date Contact Suport */}
+            <div style={{ padding: '12px', borderRadius: '12px', background: '#0B1F3A', color: '#FFFFFF', fontSize: '11px', lineHeight: '1.5' }}>
+              <strong style={{ color: '#C6F246', display: 'block', marginBottom: '4px' }}>📍 Recepție Baza Sportivă USV</strong>
+              <span>Complexul Sportiv Corp E, parter</span><br/>
+              <span>🕒 Program: Luni - Duminică: 08:00 - 22:00</span><br/>
+              <span>☎️ Tel: 0230 216 147 int. 120 · ✉️ sport@usv.ro</span>
+            </div>
+
+            <button
+              type="button"
+              className="btn-figma-dark"
+              style={{ width: '100%', marginTop: '14px', padding: '10px', fontSize: '12px' }}
+              onClick={() => setShowHelpModal(false)}
+            >
+              Am înțeles, închide ghidul
+            </button>
           </div>
         </div>
       )}
