@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 // Iconițe exportate din prototipul Figma (vezi descarca-iconite-figma.ps1)
 import decorHero1 from './assets/figma/decor-hero-1.svg';
@@ -21,6 +21,79 @@ import iconArrowDark from './assets/figma/icon-arrow-dark.svg';
 import iconLock from './assets/figma/icon-lock.svg';
 import iconCheck from './assets/figma/icon-check.svg';
 import iconInfoRed from './assets/figma/icon-info-red.svg';
+import iconBackBlue from './assets/figma/icon-back-blue.svg';
+import iconMapTeal from './assets/figma/icon-map-teal.svg';
+import iconClockTeal from './assets/figma/icon-clock-teal.svg';
+import iconTagOrange from './assets/figma/icon-tag-orange.svg';
+import iconCheckGreen from './assets/figma/icon-check-green.svg';
+import iconPhoneWhite from './assets/figma/icon-phone-white.svg';
+import iconInfoDark from './assets/figma/icon-info-dark.svg';
+import iconChevronLeft from './assets/figma/icon-chevron-left.svg';
+import iconChevronRight from './assets/figma/icon-chevron-right.svg';
+import dotLegendFree from './assets/figma/dot-legend-free.svg';
+import dotLegendBusy from './assets/figma/dot-legend-busy.svg';
+import dotLegendSelected from './assets/figma/dot-legend-selected.svg';
+import dotSlotFree from './assets/figma/dot-slot-free.svg';
+import dotSlotBusy from './assets/figma/dot-slot-busy.svg';
+import dotSlotSelected from './assets/figma/dot-slot-selected.svg';
+import iconInfoBlue from './assets/figma/icon-info-blue.svg';
+import iconInfoAmber from './assets/figma/icon-info-amber.svg';
+import iconArrowMuted from './assets/figma/icon-arrow-muted.svg';
+import QRCode from 'qrcode';
+import iconCalendarDark from './assets/figma/icon-calendar-dark.svg';
+import iconClockDark from './assets/figma/icon-clock-dark.svg';
+import iconLockNavy from './assets/figma/icon-lock-navy.svg';
+import iconExternal from './assets/figma/icon-external.svg';
+import iconXRed from './assets/figma/icon-x-red.svg';
+import iconBellBlue from './assets/figma/icon-bell-blue.svg';
+import switchOn from './assets/figma/switch-on.svg';
+import iconArrowLime from './assets/figma/icon-arrow-lime.svg';
+import iconWavesTeal from './assets/figma/icon-waves-teal.svg';
+
+// ---------- Calendar (Figma 05) ----------
+const MONTHS_RO = ['ianuarie', 'februarie', 'martie', 'aprilie', 'mai', 'iunie', 'iulie',
+  'august', 'septembrie', 'octombrie', 'noiembrie', 'decembrie'];
+const WEEKDAYS_RO = ['duminică', 'luni', 'marți', 'miercuri', 'joi', 'vineri', 'sâmbătă'];
+const WEEKDAY_HEADERS = ['L', 'Ma', 'Mi', 'J', 'V', 'S', 'D'];
+// Cât de departe în viitor se poate rezerva (luni după luna curentă)
+const MAX_MONTHS_AHEAD = 2;
+
+// Data locală în formatul cerut de API: 2026-11-24
+const toIsoDate = (date) => [
+  date.getFullYear(),
+  String(date.getMonth() + 1).padStart(2, '0'),
+  String(date.getDate()).padStart(2, '0')
+].join('-');
+
+// „marți, 24 noiembrie 2026"
+const formatLongDate = (isoDate) => {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return `${WEEKDAYS_RO[date.getDay()]}, ${day} ${MONTHS_RO[month - 1]} ${year}`;
+};
+
+// Celulele calendarului pentru o lună: null pentru golurile de la început și sfârșit, apoi zilele
+const buildMonthCells = (year, month) => {
+  const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7; // luni = 0
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells = Array(firstWeekday).fill(null);
+  for (let day = 1; day <= daysInMonth; day++) {
+    cells.push(toIsoDate(new Date(year, month, day)));
+  }
+  while (cells.length % 7 !== 0) {
+    cells.push(null);
+  }
+  return cells;
+};
+
+// Textul de stare al unui interval: „Disponibil · 6/10 locuri", „Ocupat", „Selectat · 4/10 locuri"
+const slotStatusText = (slot, isSelected) => {
+  const seats = slot.capacity > 1 ? ` · ${slot.seatsLeft}/${slot.capacity} locuri` : '';
+  if (isSelected) return `Selectat${seats}`;
+  if (slot.overlapsOwnBooking) return 'Se suprapune cu o rezervare a ta';
+  if (slot.isAvailable) return `Disponibil${seats}`;
+  return `Ocupat${seats}`;
+};
 
 // Ecranele de autentificare: fără bara de jos, cu „Ajutor" în antet (ca în Figma 01 și 02)
 const AUTH_SCREENS = ['login', 'register'];
@@ -78,10 +151,53 @@ const formatAmount = (value) => {
     : number.toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
+// ---------- Rezervare și plată (Figma 06, 06b, 07) ----------
+const BOOKING_TIME_ZONE = 'Europe/Bucharest';
+// Stările în care rezervarea așteaptă plata (slotul e blocat 5 minute)
+const PENDING_STATUSES = ['INITIATED', 'PENDING_PAYMENT'];
+const DISCOUNT_LABELS = { STUDENT: 'Reducere student', PROFESSOR: 'Reducere cadru didactic' };
+const SERVER_DOWN_MESSAGE = 'Serverul nu răspunde. Verifică dacă backend-ul este pornit.';
+
+// "Bazin" -> "bazin" (pentru „Tarif bazin", „Cum intri la bazin") și invers ("marți" -> "Marți")
+const lowerFirst = (text) => text.charAt(0).toLowerCase() + text.slice(1);
+const upperFirst = (text) => text.charAt(0).toUpperCase() + text.slice(1);
+
+// Data și ora rezervării, în ora României: { dateText: 'Marți, 27 octombrie 2026', timeText: '18:00–19:00', minutes: 60 }
+const bookingTimes = (booking) => {
+  const start = new Date(booking.start_time);
+  const end = new Date(booking.end_time);
+  const hour = (date) => date.toLocaleTimeString('ro-RO', {
+    timeZone: BOOKING_TIME_ZONE, hour: '2-digit', minute: '2-digit', hour12: false
+  });
+  // 'sv-SE' scrie data ca '2026-10-27', formatul primit de formatLongDate
+  const isoDate = start.toLocaleDateString('sv-SE', { timeZone: BOOKING_TIME_ZONE });
+  return {
+    isoDate,
+    dateText: upperFirst(formatLongDate(isoDate)),
+    timeText: `${hour(start)}–${hour(end)}`,
+    minutes: Math.round((end - start) / 60000)
+  };
+};
+
+// Totalul în moneda aleasă în antet și, mai mic, în cealaltă monedă (Figma 06)
+const bookingTotals = (booking, currency) => {
+  const ron = `${formatAmount(booking.total_amount)} RON`;
+  const eur = `${formatAmount(booking.total_amount_eur)} EUR`;
+  return currency === 'EUR' ? { main: eur, other: ron } : { main: ron, other: eur };
+};
+
+// Mesajul de eroare din răspunsul API ({ error: { code, message } } sau { error: '...' })
+const apiErrorMessage = (status, body) => {
+  if (status === 0) return SERVER_DOWN_MESSAGE;
+  if (status === 401) return 'Sesiunea a expirat. Autentifică-te din nou.';
+  const message = typeof body.error === 'string' ? body.error : body.error?.message;
+  return message || `Eroare ${status}`;
+};
+
 export default function App() {
   // Ecranul activ curent:
   // 'login' | 'register' | 'facilities' | 'facility_detail' | 'choose_datetime' |
-  // 'summary_payment' | 'confirmed_ticket' | 'my_bookings' | 'map' | 'admin'
+  // 'summary_payment' | 'payment_failed' | 'confirmed_ticket' | 'my_bookings' | 'map' | 'admin'
   // Fără token salvat, aplicația pornește pe ecranul de autentificare (Figma 01)
   const [currentScreen, setCurrentScreen] = useState(() => (readStoredAuth().token ? 'facilities' : 'login'));
 
@@ -101,14 +217,20 @@ export default function App() {
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
 
   const [authSubmitting, setAuthSubmitting] = useState(false);
+
+  // Fiecare ecran nou se deschide de sus, nu de la poziția de derulare a ecranului anterior
+  const screenContentRef = useRef(null);
+  useEffect(() => {
+    if (screenContentRef.current) {
+      screenContentRef.current.scrollTop = 0;
+    }
+  }, [currentScreen]);
   
   // Setări globale
   const [lang, setLang] = useState('ro'); // 'ro' | 'en'
   const [currency, setCurrency] = useState('RON'); // 'RON' | 'EUR'
   const [darkMode, setDarkMode] = useState(false);
   
-  // Utilizator curent & rol
-  const [userRole, setUserRole] = useState('STUDENT'); // 'STUDENT' (-50%), 'PROFESSOR' (-30%), 'AMATEUR' (0%)
   const [showPassword, setShowPassword] = useState(false);
 
   // Filtru categorie în Facilități ('Toate', 'Înot', 'Relaxare', 'Sporturi')
@@ -118,10 +240,24 @@ export default function App() {
   // Facilitate selectată pentru fluxul de rezervare
   const [selectedFacility, setSelectedFacility] = useState(null);
 
-  // Data și ora selectate în calendar
-  const [selectedDate, setSelectedDate] = useState(27);
-  const [selectedSlot, setSelectedSlot] = useState('16:00 - 17:00');
+  // Data și intervalul selectate în calendar (Figma 05). Data e în formatul API-ului: '2026-11-24'
+  const [selectedDate, setSelectedDate] = useState(() => toIsoDate(new Date()));
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const today = new Date();
+    return { year: today.getFullYear(), month: today.getMonth() };
+  });
+  // Intervalul ales: { startLabel, endLabel, seatsLeft, capacity, ... } din GET /availability (KAN-25)
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [availability, setAvailability] = useState({ slots: [], loading: false, error: '' });
   const [addEquipment, setAddEquipment] = useState(true);
+  // Rezervarea creată la intrarea în rezumat (POST /bookings), actualizată după plată (Figma 06, 06b, 07)
+  const [booking, setBooking] = useState(null);
+  const [bookingRequest, setBookingRequest] = useState({ loading: false, error: '' });
+  const [payment, setPayment] = useState({ loading: false, error: '' });
+  // Plata e simulată (KAN-53): bifa din rezumat cere backend-ului o plată refuzată, pentru ecranul 06b
+  const [simulateFailure, setSimulateFailure] = useState(false);
+  const [qrImage, setQrImage] = useState('');
+  const [qrEnlarged, setQrEnlarged] = useState(false);
   const [reminderEnabled, setReminderEnabled] = useState(true);
 
   // Tab în Rezervările Mele ('upcoming' | 'history')
@@ -378,12 +514,20 @@ export default function App() {
     priceRon: parseFloat(f.base_price_per_hour) || 30.0,
     priceEur: Number(((parseFloat(f.base_price_per_hour) || 30.0) / 5).toFixed(2)),
     unit: '/ 1h slot',
+    // Pentru ecranele 04 și 05 (KAN-52)
+    slotMinutes: f.slot_minutes || 60,
+    contactPhone: f.contact_phone || null,
     usefulInfo: {
-      location: `${f.location_name || 'Complex USV'} (${f.location_address || 'Suceava'})`,
-      program: `Zilnic, ${f.opens_at ? f.opens_at.slice(0, 5) : '08:00'} - ${f.closes_at ? f.closes_at.slice(0, 5) : '22:00'}`,
-      notice: 'Tarife diferențiate (Student -50%, Profesor -30%)',
-      beforeVisit: ['Echipament sportiv adecvat', 'Respectă intervalul orar rezervat'],
-      equipmentOptions: [{ name: 'Echipament sportiv complet', price: 10 }]
+      location: [f.location_name || 'Complex USV', f.location_zone, f.location_address].filter(Boolean).join(', '),
+      program: `${f.opens_at ? f.opens_at.slice(0, 5) : '08:00'}–${f.closes_at ? f.closes_at.slice(0, 5) : '22:00'}`,
+      notice: 'Tarife diferențiate: studenții au 50% reducere, profesorii 30%',
+      beforeVisit: f.category === 'Înot'
+        ? ['Adu echipamentul de înot și papucii.', 'Respectă intervalul rezervat și indicațiile personalului.', 'Pregătește codul rezervării pentru acces.']
+        : ['Vino cu echipament sportiv adecvat.', 'Respectă intervalul rezervat și indicațiile personalului.', 'Pregătește codul rezervării pentru acces.'],
+      equipmentTitle: f.category === 'Înot' ? 'Echipament de înot' : 'Echipament',
+      equipmentOptions: f.category === 'Înot'
+        ? [{ name: 'Ochelari de înot', price: 4 }, { name: 'Bonetă de înot', price: 3 }, { name: 'Plută de înot', price: 3 }]
+        : [{ name: 'Echipament sportiv complet', price: 10 }]
     }
   })) : fallbackFacilities;
 
@@ -497,6 +641,161 @@ export default function App() {
     setCurrentScreen('facility_detail');
   };
 
+  // GET /facilities/{id}/availability?date=... (KAN-25). Cu token, se marchează și suprapunerile cu rezervările proprii.
+  const loadAvailability = async (facility, isoDate) => {
+    setSelectedSlot(null);
+    setAvailability({ slots: [], loading: true, error: '' });
+    try {
+      const res = await fetch(`/api/v1/facilities/${facility.id}/availability?date=${isoDate}`, {
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {}
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message = res.status === 401
+          ? 'Sesiunea a expirat. Autentifică-te din nou pentru a rezerva.'
+          : body.error?.message || `Eroare ${res.status}`;
+        setAvailability({ slots: [], loading: false, error: message });
+        return;
+      }
+      setAvailability({ slots: body.slots || [], loading: false, error: '' });
+    } catch {
+      setAvailability({ slots: [], loading: false, error: 'Serverul nu răspunde. Verifică dacă backend-ul este pornit.' });
+    }
+  };
+
+  // Figma 04 -> 05: deschide calendarul pe ziua de azi
+  const openChooseDateTime = () => {
+    const today = new Date();
+    const isoToday = toIsoDate(today);
+    setSelectedDate(isoToday);
+    setCalendarMonth({ year: today.getFullYear(), month: today.getMonth() });
+    setBookingRequest({ loading: false, error: '' });
+    setCurrentScreen('choose_datetime');
+    loadAvailability(selectedFacility, isoToday);
+  };
+
+  const selectCalendarDay = (isoDate) => {
+    setBookingRequest({ loading: false, error: '' });
+    setSelectedDate(isoDate);
+    loadAvailability(selectedFacility, isoDate);
+  };
+
+  // Navigare între luni: nu înainte de luna curentă și cel mult MAX_MONTHS_AHEAD luni înainte
+  const changeCalendarMonth = (delta) => {
+    const today = new Date();
+    const target = new Date(calendarMonth.year, calendarMonth.month + delta, 1);
+    const monthsFromNow = (target.getFullYear() - today.getFullYear()) * 12 + target.getMonth() - today.getMonth();
+    if (monthsFromNow < 0 || monthsFromNow > MAX_MONTHS_AHEAD) {
+      return;
+    }
+    setCalendarMonth({ year: target.getFullYear(), month: target.getMonth() });
+  };
+
+  // Codul QR se desenează din tokenul primit de la backend după plată (booking.qr_payload)
+  useEffect(() => {
+    const payload = booking?.qr_payload;
+    if (!payload) {
+      setQrImage('');
+      return undefined;
+    }
+    let cancelled = false;
+    QRCode.toDataURL(payload, {
+      errorCorrectionLevel: 'M',
+      margin: 0,
+      width: 240,
+      color: { dark: '#0b1f3a', light: '#ffffff' }
+    })
+      .then((url) => { if (!cancelled) setQrImage(url); })
+      .catch(() => { if (!cancelled) setQrImage(''); });
+    return () => { cancelled = true; };
+  }, [booking?.qr_payload]);
+
+  // Cerere POST cu tokenul utilizatorului; status 0 înseamnă că serverul nu răspunde
+  const postWithAuth = async (url, data) => {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify(data)
+      });
+      const body = await res.json().catch(() => ({}));
+      return { status: res.status, body };
+    } catch {
+      return { status: 0, body: {} };
+    }
+  };
+
+  // Figma 05 -> 06: rezervarea se creează la intrarea în rezumat (POST /bookings), cu slotul blocat 5 minute.
+  // Dacă utilizatorul revine din rezumat și păstrează același interval, refolosim rezervarea existentă.
+  const openSummary = async () => {
+    if (!selectedSlot || bookingRequest.loading) return;
+    const sameBooking = booking &&
+      booking.facility_id === selectedFacility.id &&
+      new Date(booking.start_time).getTime() === new Date(selectedSlot.startTime).getTime() &&
+      PENDING_STATUSES.includes(booking.status) &&
+      new Date(booking.hold_expires_at) > new Date();
+    if (sameBooking) {
+      setPayment({ loading: false, error: '' });
+      setCurrentScreen('summary_payment');
+      return;
+    }
+
+    setBookingRequest({ loading: true, error: '' });
+    const { status, body } = await postWithAuth('/api/v1/bookings', {
+      facilityId: selectedFacility.id,
+      bookingDate: selectedDate,
+      startTime: `${selectedSlot.startLabel}:00`,
+      endTime: `${selectedSlot.endLabel}:00`,
+      reminderEnabled
+    });
+    if (status === 201) {
+      setBooking(body);
+      setBookingRequest({ loading: false, error: '' });
+      setPayment({ loading: false, error: '' });
+      setSimulateFailure(false);
+      setCurrentScreen('summary_payment');
+      return;
+    }
+    if (status === 409) {
+      // Altcineva a rezervat între timp intervalul: reîncărcăm intervalele zilei
+      setBookingRequest({ loading: false, error: 'Intervalul ales nu mai este liber. Alege altă oră.' });
+      loadAvailability(selectedFacility, selectedDate);
+      return;
+    }
+    setBookingRequest({ loading: false, error: apiErrorMessage(status, body) });
+  };
+
+  // Figma 06 și 06b: „Confirmă și plătește" / „Reîncearcă plata" -> POST /bookings/{id}/pay (plată simulată, KAN-53)
+  const payBooking = async () => {
+    if (payment.loading) return;
+    setPayment({ loading: true, error: '' });
+    const { status, body } = await postWithAuth(`/api/v1/bookings/${booking.booking_id}/pay`, {
+      method: 'CARD_ONLINE',
+      simulateResult: simulateFailure ? 'FAILED' : 'SUCCESS'
+    });
+    if (status === 200) {
+      setBooking(body.booking);
+      setPayment({ loading: false, error: '' });
+      setQrEnlarged(false);
+      setCurrentScreen('confirmed_ticket');
+      return;
+    }
+    if (status === 402) {
+      // Rezervarea rămâne în așteptare; la „Reîncearcă plata" simularea pornește din nou cu succes
+      setBooking(body.booking);
+      setSimulateFailure(false);
+      setPayment({ loading: false, error: '' });
+      setCurrentScreen('payment_failed');
+      return;
+    }
+    // 400 SB400: au trecut cele 5 minute de blocare; 409: rezervarea nu mai așteaptă plata
+    const message = status === 400 && body.error?.code === 'SB400'
+      ? 'Au trecut cele 5 minute în care intervalul a fost păstrat. Alege din nou data și ora.'
+      : apiErrorMessage(status, body);
+    setPayment({ loading: false, error: message });
+    setCurrentScreen('summary_payment');
+  };
+
   // Tabul „Cont" și butonul „Contul meu". Până la ecranul 11 din Figma deschid panoul Admin.
   const openAccount = () => {
     setCurrentScreen('admin');
@@ -513,10 +812,6 @@ export default function App() {
     }
     setAuthToken(token);
     setAuthUser(user);
-    // Reducerea din rezumatul plății se calculează după rolul utilizatorului autentificat
-    if (['STUDENT', 'PROFESSOR', 'AMATEUR'].includes(user.roleType)) {
-      setUserRole(user.roleType);
-    }
     setLoginForm({ email: '', password: '' });
     setRegisterForm(emptyRegisterForm);
     setCurrentScreen('facilities');
@@ -622,20 +917,22 @@ export default function App() {
     return currency === 'RON' ? [ron, eur] : [eur, ron];
   };
 
-  const getRoleDiscountPercent = () => {
-    if (userRole === 'STUDENT') return 50;
-    if (userRole === 'PROFESSOR') return 30;
-    return 0;
-  };
-
-  const calculateFinalPrice = () => {
-    if (!selectedFacility) return '22,50';
-    const base = currency === 'RON' ? selectedFacility.priceRon : selectedFacility.priceEur;
-    const discount = getRoleDiscountPercent() / 100;
-    const discountedBase = base * (1 - discount);
-    const equip = addEquipment ? (currency === 'RON' ? 10 : 2) : 0;
-    const total = discountedBase + equip;
-    return currency === 'RON' ? total.toFixed(2).replace('.', ',') : total.toFixed(2);
+  // Rândul cu iconița categoriei și numele facilității (Figma 06, 06b, 07)
+  const renderFacilityHeading = (bookingRow) => {
+    const style = CATEGORY_STYLE[selectedFacility?.category] || CATEGORY_STYLE.Sporturi;
+    return (
+      <div className="sc-facility-heading">
+        <span className={`sc-category-badge ${style.className}`}>
+          {/* Figma are doar iconița pentru Înot; la celelalte categorii folosim iconița cardului, colorată prin mască.
+              Ghilimelele sunt necesare: iconițele mici sunt incluse ca text (data URL) */}
+          {style.className === 'swim'
+            ? <img src={iconWavesTeal} alt="" />
+            : <span style={{ '--icon': `url("${style.icon}")` }} />}
+        </span>
+        {/* „Complex sportiv, corp A" -> „Complex sportiv", ca în Figma; corpul apare în „Cum intri" */}
+        <strong>{bookingRow.facility} · {bookingRow.building_name.split(',')[0]}</strong>
+      </div>
+    );
   };
 
   return (
@@ -701,44 +998,42 @@ export default function App() {
 
         {currentScreen === 'facility_detail' && selectedFacility && (
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button onClick={() => setCurrentScreen('facilities')} style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: '14px', cursor: 'pointer' }}>←</button>
-              <div>
-                <h2 className="figma-header-title">{selectedFacility.name}</h2>
-                <p className="figma-header-desc">{selectedFacility.subtitle}</p>
-              </div>
-            </div>
+            <h2 className="figma-header-title">{selectedFacility.name}</h2>
+            <p className="figma-header-desc">{selectedFacility.category} · {selectedFacility.subtitle.split(' · ')[0]}</p>
           </div>
         )}
 
         {currentScreen === 'choose_datetime' && selectedFacility && (
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button onClick={() => setCurrentScreen('facility_detail')} style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: '14px', cursor: 'pointer' }}>←</button>
-              <div>
-                <h2 className="figma-header-title">Alege data și ora</h2>
-                <p className="figma-header-desc">{selectedFacility.name} · 60 min · {selectedFacility.priceRon} RON / 5 EUR</p>
-              </div>
-            </div>
+            <h2 className="figma-header-title">Alege data și ora</h2>
+            <p className="figma-header-desc">
+              {selectedFacility.name} · {selectedFacility.slotMinutes || 60} min · {formatAmount(selectedFacility.priceRon)} RON / {formatAmount(selectedFacility.priceEur)} EUR
+            </p>
           </div>
         )}
 
-        {currentScreen === 'summary_payment' && selectedFacility && (
+        {currentScreen === 'summary_payment' && (
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button onClick={() => setCurrentScreen('choose_datetime')} style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: '14px', cursor: 'pointer' }}>←</button>
-              <div>
-                <h2 className="figma-header-title">Rezumat și plată</h2>
-                <p className="figma-header-desc">Verifică datele rezervării înainte de a continua</p>
-              </div>
-            </div>
+            <h2 className="figma-header-title">Rezumat și plată</h2>
+            <p className="figma-header-desc">Verifică datele rezervării înainte de a continua la plata externă.</p>
+          </div>
+        )}
+
+        {currentScreen === 'payment_failed' && (
+          <div>
+            <h2 className="figma-header-title">Plată eșuată</h2>
+            <p className="figma-header-desc">Tranzacția nu a putut fi procesată de bancă</p>
           </div>
         )}
 
         {currentScreen === 'confirmed_ticket' && (
           <div>
             <h2 className="figma-header-title">Rezervare confirmată</h2>
-            <p className="figma-header-desc">Plată finalizată cu succes · Bilet electronic emis</p>
+            {booking?.booking_code && (
+              <p className="figma-header-desc">
+                {Number(booking.total_amount) > 0 ? 'Plătită' : 'Gratuită'} · Cod rezervare {booking.booking_code}
+              </p>
+            )}
           </div>
         )}
 
@@ -758,7 +1053,7 @@ export default function App() {
       </header>
 
       {/* ================= CONȚINUT ECRANE ================= */}
-      <main className={`figma-screen-content ${AUTH_SCREENS.includes(currentScreen) ? 'sc-no-nav' : ''}`}>
+      <main ref={screenContentRef} className={`figma-screen-content ${AUTH_SCREENS.includes(currentScreen) ? 'sc-no-nav' : ''}`}>
 
         {/* ---------------- AUTENTIFICARE (Figma 01 / 01b) ---------------- */}
         {currentScreen === 'login' && (
@@ -1202,226 +1497,460 @@ export default function App() {
           </div>
         )}
 
-        {/* ---------------- 04. DETALII FACILITATE ---------------- */}
+        {/* ---------------- 04. DETALII FACILITATE (Figma 04) ---------------- */}
         {currentScreen === 'facility_detail' && selectedFacility && (
-          <div>
-            <button 
-              onClick={() => setCurrentScreen('facilities')} 
-              style={{ background: 'none', border: 'none', color: '#0284C7', fontSize: '12px', fontWeight: 700, cursor: 'pointer', marginBottom: '12px' }}
-            >
-              ← Toate facilitățile
+          <div className="sc-stack">
+            <button type="button" className="sc-back-link" onClick={() => setCurrentScreen('facilities')}>
+              <img src={iconBackBlue} alt="" />
+              Toate facilitățile
             </button>
 
-            <div className="info-section-box">
-              <h4 style={{ fontSize: '13px', fontWeight: 800, marginBottom: '12px' }}>Informații utile</h4>
-              
-              <div className="info-item-row">
-                <span>📍</span>
-                <div>
-                  <span style={{ fontWeight: 700, fontSize: '12px' }}>Locație: </span>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{selectedFacility.usefulInfo.location}</span>
-                </div>
+            <section className="sc-panel">
+              <h3 className="sc-panel-title">Informații utile</h3>
+              <div className="sc-info-row">
+                <span className="sc-info-badge"><img src={iconMapTeal} alt="" /></span>
+                <span className="sc-info-text">
+                  <span>Locație</span>
+                  <strong>{selectedFacility.usefulInfo.location}</strong>
+                </span>
               </div>
+              <div className="sc-info-row">
+                <span className="sc-info-badge"><img src={iconClockTeal} alt="" /></span>
+                <span className="sc-info-text">
+                  <span>Program</span>
+                  <strong>{selectedFacility.usefulInfo.program}</strong>
+                </span>
+              </div>
+              <hr className="sc-separator" />
+              <div className="sc-price-line">
+                <span>{selectedFacility.slotMinutes || 60} min / rezervare</span>
+                <span className="sc-price">
+                  <strong className="sc-price-large">{priceParts(selectedFacility)[0]}</strong>
+                  <span>/ {priceParts(selectedFacility)[1]}</span>
+                </span>
+              </div>
+              <p className="sc-muted-note">Preț de bază pentru un interval; reducerea se aplică la plată.</p>
+            </section>
 
-              <div className="info-item-row">
-                <span>⏰</span>
-                <div>
-                  <span style={{ fontWeight: 700, fontSize: '12px' }}>Program: </span>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{selectedFacility.usefulInfo.program}</span>
-                </div>
-              </div>
-
-              <div className="info-item-row">
-                <span>🏷️</span>
-                <div>
-                  <span style={{ fontWeight: 700, fontSize: '12px' }}>Tarif/oră: </span>
-                  <span style={{ fontWeight: 800, fontSize: '12px' }}>{selectedFacility.priceRon} RON</span>
-                  <p style={{ fontSize: '11px', color: '#16A34A', marginTop: '2px' }}>Studenții USV au 50% reducere automată</p>
-                </div>
-              </div>
-
-              <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', padding: '10px 12px', borderRadius: '10px', marginTop: '12px' }}>
-                <p style={{ fontSize: '11px', color: '#BE123C', fontWeight: 700 }}>
-                  💡 {selectedFacility.usefulInfo.notice}
-                </p>
-              </div>
+            <div className="sc-promo-box">
+              <img src={iconTagOrange} alt="" />
+              <span>{selectedFacility.usefulInfo.notice}</span>
             </div>
 
-            <div className="info-section-box">
-              <h4 style={{ fontSize: '13px', fontWeight: 800, marginBottom: '10px' }}>Înainte de vizită</h4>
-              {selectedFacility.usefulInfo.beforeVisit.map((rule, idx) => (
-                <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                  <span style={{ color: '#16A34A', fontWeight: 800 }}>✓</span>
+            <section className="sc-panel sc-panel-tight">
+              <h3 className="sc-panel-title">Înainte de vizită</h3>
+              {selectedFacility.usefulInfo.beforeVisit.map((rule) => (
+                <div key={rule} className="sc-rule">
+                  <span className="sc-rule-badge"><img src={iconCheckGreen} alt="" /></span>
                   <span>{rule}</span>
                 </div>
               ))}
-            </div>
+            </section>
 
-            <button className="btn-figma-green" onClick={() => setCurrentScreen('choose_datetime')}>
-              Rezervă - alege data și ora →
+            <section className="sc-panel sc-panel-tight">
+              <h3 className="sc-panel-title">{selectedFacility.usefulInfo.equipmentTitle || 'Echipament'} (opțional)</h3>
+              {selectedFacility.usefulInfo.equipmentOptions.map((item, index) => (
+                <React.Fragment key={item.name}>
+                  {index > 0 && <hr className="sc-separator" />}
+                  <div className="sc-equipment-row">
+                    <span>{item.name}</span>
+                    <strong>{formatAmount(item.price)} RON</strong>
+                  </div>
+                </React.Fragment>
+              ))}
+            </section>
+
+            <section className="sc-contact-box">
+              <div className="sc-contact-row">
+                <span className="sc-phone-badge"><img src={iconPhoneWhite} alt="" /></span>
+                <span>
+                  Pentru mai multe detalii, sunați la {selectedFacility.contactPhone || 'recepția bazei sportive'}
+                </span>
+              </div>
+              {/* „Ajutor" va deschide ghidul de utilizare (KAN-63) */}
+              <button type="button" className="sc-btn-secondary">
+                Ajutor
+                <img src={iconInfoDark} alt="" className="sc-btn-icon" />
+              </button>
+            </section>
+
+            <button type="button" className="sc-btn-primary" onClick={openChooseDateTime}>
+              Rezervă · alege data și ora
+              <img src={iconArrowDark} alt="" />
             </button>
+            <p className="sc-muted-note sc-center">Vei vedea disponibilitatea înainte de plată.</p>
           </div>
         )}
 
-        {/* ---------------- 05. ALEGE DATA ȘI ORA ---------------- */}
-        {currentScreen === 'choose_datetime' && selectedFacility && (
-          <div>
-            <div className="calendar-card">
-              <div className="calendar-header">
-                <span>‹</span>
-                <span>Octombrie 2026</span>
-                <span>›</span>
-              </div>
+        {/* ---------------- 05 / 05b. ALEGE DATA ȘI ORA (Figma 05, 05b) ---------------- */}
+        {currentScreen === 'choose_datetime' && selectedFacility && (() => {
+          const todayIso = toIsoDate(new Date());
+          const cells = buildMonthCells(calendarMonth.year, calendarMonth.month);
+          const weeks = [];
+          for (let i = 0; i < cells.length; i += 7) {
+            weeks.push(cells.slice(i, i + 7));
+          }
+          const noSlots = !availability.loading && !availability.error && availability.slots.length === 0;
+          const isFreeDayEmpty = !availability.loading && !availability.error &&
+            availability.slots.length > 0 && availability.slots.every((slot) => !slot.isAvailable);
+          const canContinue = Boolean(selectedSlot) && !availability.loading && !bookingRequest.loading;
+          const monthTitle = `${MONTHS_RO[calendarMonth.month][0].toUpperCase()}${MONTHS_RO[calendarMonth.month].slice(1)} ${calendarMonth.year}`;
 
-              <div className="calendar-grid">
-                {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map(day => (
-                  <div key={day} className="calendar-day-header">{day}</div>
-                ))}
-                {[...Array(4)].map((_, i) => <div key={`empty-${i}`} className="calendar-day-btn inactive"></div>)}
-                {[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31].map(d => (
-                  <button 
-                    key={d} 
-                    className={`calendar-day-btn ${selectedDate === d ? 'selected' : ''}`}
-                    onClick={() => setSelectedDate(d)}
-                  >
-                    {d}
+          return (
+            <div className="sc-stack">
+              <button type="button" className="sc-back-link" onClick={() => setCurrentScreen('facility_detail')}>
+                <img src={iconBackBlue} alt="" />
+                Detalii facilitate
+              </button>
+
+              <section className="sc-calendar">
+                <div className="sc-calendar-head">
+                  <button type="button" className="sc-month-btn" onClick={() => changeCalendarMonth(-1)} aria-label="Luna precedentă">
+                    <img src={iconChevronLeft} alt="" />
                   </button>
+                  <span>{monthTitle}</span>
+                  <button type="button" className="sc-month-btn" onClick={() => changeCalendarMonth(1)} aria-label="Luna următoare">
+                    <img src={iconChevronRight} alt="" />
+                  </button>
+                </div>
+                <div className="sc-calendar-row sc-weekdays">
+                  {WEEKDAY_HEADERS.map((day) => <span key={day}>{day}</span>)}
+                </div>
+                {weeks.map((week, weekIndex) => (
+                  <div key={weekIndex} className="sc-calendar-row">
+                    {week.map((isoDate, dayIndex) => {
+                      if (!isoDate) {
+                        return <span key={`gol-${dayIndex}`} className="sc-day empty" />;
+                      }
+                      const isPast = isoDate < todayIso;
+                      const classes = ['sc-day'];
+                      if (isPast) classes.push('past');
+                      if (isoDate === todayIso) classes.push('today');
+                      if (isoDate === selectedDate) classes.push('selected');
+                      return (
+                        <button
+                          key={isoDate}
+                          type="button"
+                          className={classes.join(' ')}
+                          disabled={isPast}
+                          onClick={() => selectCalendarDay(isoDate)}
+                        >
+                          {Number(isoDate.slice(8))}
+                        </button>
+                      );
+                    })}
+                  </div>
                 ))}
-              </div>
-            </div>
+              </section>
 
-            <div style={{ marginBottom: '14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 800 }}>Selectat: marți, {selectedDate} octombrie 2026</span>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                <div 
-                  className={`time-slot-card ${selectedSlot === '14:00 - 15:00' ? 'selected' : ''}`}
-                  onClick={() => setSelectedSlot('14:00 - 15:00')}
-                >
-                  <span style={{ fontSize: '12px', fontWeight: 800 }}>14:00 - 15:00</span>
-                  <span style={{ fontSize: '10px', opacity: 0.8 }}>🟢 Liber · 12 locuri</span>
-                </div>
-
-                <div className="time-slot-card busy">
-                  <span style={{ fontSize: '12px', fontWeight: 800 }}>15:00 - 16:00</span>
-                  <span style={{ fontSize: '10px' }}>🟡 Ocupat · 0 locuri</span>
-                </div>
-
-                <div 
-                  className={`time-slot-card ${selectedSlot === '16:00 - 17:00' ? 'selected' : ''}`}
-                  onClick={() => setSelectedSlot('16:00 - 17:00')}
-                >
-                  <span style={{ fontSize: '12px', fontWeight: 800 }}>16:00 - 17:00</span>
-                  <span style={{ fontSize: '10px', opacity: 0.8 }}>⚫ Selectat · 4/12 locuri</span>
-                </div>
-
-                <div 
-                  className={`time-slot-card ${selectedSlot === '17:00 - 18:00' ? 'selected' : ''}`}
-                  onClick={() => setSelectedSlot('17:00 - 18:00')}
-                >
-                  <span style={{ fontSize: '12px', fontWeight: 800 }}>17:00 - 18:00</span>
-                  <span style={{ fontSize: '10px', opacity: 0.8 }}>🟢 Liber · 8 locuri</span>
+              <div className="sc-selected-day">
+                <strong>Selectat: {formatLongDate(selectedDate)}</strong>
+                <div className="sc-legend">
+                  <span><img src={dotLegendFree} alt="" />Liber</span>
+                  <span><img src={dotLegendBusy} alt="" />Ocupat</span>
+                  <span><img src={dotLegendSelected} alt="" />Selectat</span>
                 </div>
               </div>
-            </div>
 
-            <div className="info-section-box" style={{ padding: '10px 14px', marginBottom: '18px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                <input 
-                  type="checkbox" 
-                  checked={addEquipment}
-                  onChange={(e) => setAddEquipment(e.target.checked)}
-                  style={{ width: '16px', height: '16px', accentColor: 'var(--primary-green)' }}
-                />
-                <span style={{ fontSize: '12px', fontWeight: 700 }}>Adaugă echipament (+10 RON)</span>
-              </label>
-            </div>
+              {availability.loading && <p className="sc-muted-note">Se încarcă intervalele…</p>}
 
-            <button className="btn-figma-green" onClick={() => setCurrentScreen('summary_payment')}>
-              Continuă către rezumat →
-            </button>
-          </div>
-        )}
-
-        {/* ---------------- 06. REZUMAT ȘI PLATĂ ---------------- */}
-        {currentScreen === 'summary_payment' && selectedFacility && (
-          <div>
-            <div className="info-section-box">
-              <h3 style={{ fontSize: '15px', fontWeight: 800, marginBottom: '2px' }}>{selectedFacility.name}</h3>
-              <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '14px' }}>
-                📅 Marți, {selectedDate} octombrie 2026 · ⏰ {selectedSlot} · 60 min
-              </p>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Tarif facilitate:</span>
-                <span>{selectedFacility.priceRon} RON</span>
-              </div>
-
-              {addEquipment && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Echipament opțional:</span>
-                  <span>+10 RON</span>
+              {availability.error && (
+                <div className="sc-alert-error" role="alert">
+                  <img src={iconInfoRed} alt="" />
+                  <span>{availability.error}</span>
                 </div>
               )}
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0', color: '#16A34A' }}>
-                <span>Reducere student (-50%):</span>
-                <span>-{(selectedFacility.priceRon * 0.5).toFixed(2)} RON</span>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: 900, borderTop: '1px solid var(--border-light)', marginTop: '10px', paddingTop: '10px' }}>
-                <span>Total:</span>
-                <span>{calculateFinalPrice()} {currency}</span>
-              </div>
-            </div>
-
-            <button className="btn-figma-green" onClick={() => setCurrentScreen('confirmed_ticket')}>
-              Confirmă și plătește · {calculateFinalPrice()} {currency} →
-            </button>
-          </div>
-        )}
-
-        {/* ---------------- 07. REZERVARE CONFIRMATĂ (Bilet QR) ---------------- */}
-        {currentScreen === 'confirmed_ticket' && (
-          <div>
-            <div className="info-section-box" style={{ borderTop: '4px solid #22C55E' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: 800 }}>Bazin - Complex sportiv</h3>
-              <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                📅 Marți, 27 octombrie 2026 · ⏰ 16:00 - 17:00 · 60 min
-              </p>
-              <p style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '14px' }}>
-                Total achitat: <span style={{ color: '#16A34A' }}>22,50 RON / 4.50 EUR</span>
-              </p>
-
-              <div style={{ textAlign: 'center', background: '#F8FAFC', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
-                <div style={{ width: '130px', height: '130px', background: 'white', margin: '0 auto', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                  <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%' }}>
-                    <rect width="100" height="100" fill="white" />
-                    <rect x="5" y="5" width="26" height="26" fill="#0F2942" rx="3" />
-                    <rect x="10" y="10" width="16" height="16" fill="white" />
-                    <rect x="14" y="14" width="8" height="8" fill="#0F2942" />
-                    <rect x="69" y="5" width="26" height="26" fill="#0F2942" rx="3" />
-                    <rect x="74" y="10" width="16" height="16" fill="white" />
-                    <rect x="78" y="14" width="8" height="8" fill="#0F2942" />
-                    <rect x="5" y="69" width="26" height="26" fill="#0F2942" rx="3" />
-                    <rect x="10" y="74" width="16" height="16" fill="white" />
-                    <rect x="14" y="78" width="8" height="8" fill="#0F2942" />
-                    <rect x="38" y="8" width="8" height="8" fill="#0F2942" />
-                    <rect x="40" y="40" width="20" height="20" fill="#0F2942" rx="2" />
-                  </svg>
+              {(noSlots || isFreeDayEmpty) && (
+                <div className="sc-warning-box">
+                  <div className="sc-warning-title">
+                    <img src={iconInfoAmber} alt="" />
+                    <strong>Nu există intervale libere în această zi</strong>
+                  </div>
+                  <p>Alege altă dată din calendar pentru a vedea intervalele disponibile.</p>
                 </div>
-                <p style={{ fontSize: '11px', fontWeight: 800, marginTop: '8px' }}>Cod de acces: SC-271026-001</p>
-                <p style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Prezintă codul la intrare în Bazinul Complexului Sportiv</p>
-              </div>
-            </div>
+              )}
 
-            <button className="btn-figma-dark" style={{ width: '100%', padding: '12px', borderRadius: '12px', marginBottom: '10px' }} onClick={() => setCurrentScreen('my_bookings')}>
-              Vezi rezervările mele →
+              {availability.slots.length > 0 && !isFreeDayEmpty && (
+                <>
+                  <div className="sc-slots">
+                    {availability.slots.map((slot) => {
+                      const isSelected = selectedSlot && selectedSlot.startTime === slot.startTime;
+                      const state = isSelected ? 'selected' : slot.isAvailable ? 'free' : 'busy';
+                      const dot = state === 'selected' ? dotSlotSelected : state === 'free' ? dotSlotFree : dotSlotBusy;
+                      return (
+                        <button
+                          key={slot.startTime}
+                          type="button"
+                          className={`sc-slot ${state}`}
+                          disabled={!slot.isAvailable}
+                          onClick={() => {
+                            setSelectedSlot(slot);
+                            setBookingRequest({ loading: false, error: '' });
+                          }}
+                        >
+                          <span className="sc-slot-time">{slot.startLabel}–{slot.endLabel}</span>
+                          <span className="sc-slot-status">
+                            <img src={dot} alt="" />
+                            {slotStatusText(slot, isSelected)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="sc-note-box">
+                    <img src={iconInfoBlue} alt="" />
+                    <span>Fără suprapuneri: intervalele ocupate sau care se suprapun cu rezervările tale sunt dezactivate.</span>
+                  </div>
+
+                  <label className="sc-equipment-toggle">
+                    <input
+                      type="checkbox"
+                      checked={addEquipment}
+                      onChange={(e) => setAddEquipment(e.target.checked)}
+                    />
+                    <span className="sc-checkbox" aria-hidden="true">
+                      <img src={iconCheck} alt="" />
+                    </span>
+                    <span className="sc-equipment-text">
+                      <strong>Adaugă {(selectedFacility.usefulInfo.equipmentTitle || 'echipament').toLowerCase()}</strong>
+                      <span>+10 RON</span>
+                    </span>
+                  </label>
+                </>
+              )}
+
+              {bookingRequest.error && (
+                <div className="sc-alert-error" role="alert">
+                  <img src={iconInfoRed} alt="" />
+                  <span>{bookingRequest.error}</span>
+                </div>
+              )}
+
+              <button
+                type="button"
+                className={`sc-btn-primary ${canContinue ? '' : 'sc-btn-disabled'}`}
+                disabled={!canContinue}
+                onClick={openSummary}
+              >
+                {bookingRequest.loading ? 'Se creează rezervarea…' : 'Continuă către rezumat'}
+                <img src={canContinue ? iconArrowDark : iconArrowMuted} alt="" />
+              </button>
+            </div>
+          );
+        })()}
+
+        {/* ---------------- 06. REZUMAT ȘI PLATĂ (Figma 06) ---------------- */}
+        {currentScreen === 'summary_payment' && booking && (() => {
+          const times = bookingTimes(booking);
+          const totals = bookingTotals(booking, currency);
+          const discount = Number(booking.discount_amount);
+          const equipment = Number(booking.equipment_amount);
+          return (
+            <div className="sc-stack">
+              <section className="sc-panel">
+                {renderFacilityHeading(booking)}
+                <div className="sc-meta-row"><img src={iconCalendarDark} alt="" />{times.dateText}</div>
+                <div className="sc-meta-row"><img src={iconClockDark} alt="" />{times.timeText} · {times.minutes} min</div>
+                <hr className="sc-separator" />
+                <div className="sc-amount-row">
+                  <span>Tarif {lowerFirst(booking.facility)}</span>
+                  <strong>{formatAmount(booking.base_amount)} RON</strong>
+                </div>
+                {equipment > 0 && (
+                  <div className="sc-amount-row">
+                    <span>{selectedFacility?.usefulInfo?.equipmentTitle || 'Echipament'}</span>
+                    <strong>{formatAmount(equipment)} RON</strong>
+                  </div>
+                )}
+                {discount > 0 && (
+                  <div className="sc-amount-row">
+                    <span>{DISCOUNT_LABELS[booking.role_type] || 'Reducere'}</span>
+                    <strong className="sc-amount-discount">−{formatAmount(discount)} RON</strong>
+                  </div>
+                )}
+                <hr className="sc-separator" />
+                <div className="sc-total-row">
+                  <span>Total</span>
+                  <span className="sc-total-sum">
+                    <strong>{totals.main}</strong>
+                    <span>≈ {totals.other}</span>
+                  </span>
+                </div>
+              </section>
+
+              <button type="button" className="sc-back-link" onClick={() => setCurrentScreen('choose_datetime')}>
+                <img src={iconBackBlue} alt="" />
+                Modifică data sau ora
+              </button>
+
+              <section className="sc-panel">
+                <h3 className="sc-panel-title">Plată prin procesator extern</h3>
+                {/* În MVP nu există procesator real: plata simulată pornește din butonul de mai jos */}
+                <div className="sc-processor">
+                  <span><img src={iconLockNavy} alt="" />Continuă la plata externă</span>
+                  <img src={iconExternal} alt="" />
+                </div>
+                <p className="sc-panel-text">
+                  Vei fi redirecționat către pagina securizată a procesatorului pentru a introduce datele cardului.
+                </p>
+                <p className="sc-muted-note">Demonstrativ: nu există tranzacție reală.</p>
+                <label className="sc-consent">
+                  <input
+                    type="checkbox"
+                    checked={simulateFailure}
+                    onChange={(e) => setSimulateFailure(e.target.checked)}
+                  />
+                  <span className="sc-checkbox" aria-hidden="true">
+                    <img src={iconCheck} alt="" />
+                  </span>
+                  <span>Simulează o plată refuzată de bancă</span>
+                </label>
+              </section>
+
+              <p className="sc-muted-note">Suma de plată în moneda selectată: {totals.main}.</p>
+
+              {payment.error && (
+                <div className="sc-alert-error" role="alert">
+                  <img src={iconInfoRed} alt="" />
+                  <span>{payment.error}</span>
+                </div>
+              )}
+
+              <button type="button" className="sc-btn-primary" disabled={payment.loading} onClick={payBooking}>
+                {payment.loading ? 'Se procesează plata…' : `Confirmă și plătește · ${totals.main}`}
+                <img src={iconArrowDark} alt="" />
+              </button>
+              <p className="sc-muted-note sc-center">Poți anula cu cel puțin 24 de ore înainte.</p>
+            </div>
+          );
+        })()}
+
+        {/* ---------------- 06b. PLATĂ EȘUATĂ (Figma 06b) ---------------- */}
+        {currentScreen === 'payment_failed' && booking && (() => {
+          const times = bookingTimes(booking);
+          return (
+            <div className="sc-stack">
+              <section className="sc-panel sc-status-card">
+                <span className="sc-status-badge"><img src={iconXRed} alt="" /></span>
+                <h3>Nu am putut finaliza plata</h3>
+                <p>Rezervarea nu a fost confirmată. Poți reîncerca plata sau te poți întoarce la rezumat.</p>
+              </section>
+
+              <section className="sc-panel sc-panel-outline sc-panel-tight">
+                {renderFacilityHeading(booking)}
+                <div className="sc-meta-row"><img src={iconCalendarDark} alt="" />{times.dateText}</div>
+                <div className="sc-meta-row"><img src={iconClockDark} alt="" />{times.timeText} · {times.minutes} min</div>
+                <hr className="sc-separator" />
+                <div className="sc-amount-row">
+                  <span>Total de plată</span>
+                  <strong>{formatAmount(booking.total_amount)} RON / {formatAmount(booking.total_amount_eur)} EUR</strong>
+                </div>
+              </section>
+
+              {payment.error && (
+                <div className="sc-alert-error" role="alert">
+                  <img src={iconInfoRed} alt="" />
+                  <span>{payment.error}</span>
+                </div>
+              )}
+
+              <button type="button" className="sc-btn-primary" disabled={payment.loading} onClick={payBooking}>
+                {payment.loading ? 'Se procesează plata…' : 'Reîncearcă plata'}
+                <img src={iconArrowDark} alt="" />
+              </button>
+              <button type="button" className="sc-btn-secondary" onClick={() => setCurrentScreen('summary_payment')}>
+                Anulează / Înapoi
+              </button>
+            </div>
+          );
+        })()}
+
+        {/* ---------------- 07. REZERVARE CONFIRMATĂ (Figma 07) ---------------- */}
+        {currentScreen === 'confirmed_ticket' && (booking?.qr_payload ? (() => {
+          const times = bookingTimes(booking);
+          const dayMonth = times.dateText.split(', ')[1].replace(/ \d{4}$/, '');
+          return (
+            <div className="sc-stack">
+              <section className="sc-ticket">
+                <div className="sc-ticket-details">
+                  {renderFacilityHeading(booking)}
+                  <div className="sc-meta-row"><img src={iconCalendarDark} alt="" />{times.dateText}</div>
+                  <div className="sc-meta-row"><img src={iconClockDark} alt="" />{times.timeText} · {times.minutes} min</div>
+                  <div className="sc-amount-row">
+                    <span>Total plătit</span>
+                    <strong className="sc-amount-strong">
+                      {formatAmount(booking.total_amount)} RON / {formatAmount(booking.total_amount_eur)} EUR
+                    </strong>
+                  </div>
+                </div>
+                <div className="sc-ticket-perforation" aria-hidden="true" />
+                {/* Atingerea codului îl mărește, ca să fie citit ușor de scanerul de la recepție */}
+                <button
+                  type="button"
+                  className={`sc-ticket-code ${qrEnlarged ? 'enlarged' : ''}`}
+                  aria-expanded={qrEnlarged}
+                  onClick={() => setQrEnlarged((value) => !value)}
+                >
+                  <span className="sc-qr-box">
+                    {qrImage
+                      ? <img src={qrImage} alt={`Cod QR pentru rezervarea ${booking.booking_code}`} />
+                      : <span className="sc-qr-fallback">{booking.qr_payload}</span>}
+                  </span>
+                  <span className="sc-ticket-code-text">
+                    <strong>Cod de acces</strong>
+                    <span>
+                      Prezintă codul la recepția din {booking.building_name}.
+                      {qrEnlarged ? ' Atinge din nou pentru a-l micșora.' : ' Atinge codul pentru a-l mări.'}
+                    </span>
+                  </span>
+                </button>
+              </section>
+
+              {/* Reminderul se alege la crearea rezervării; modificarea lui ulterioară are nevoie de un endpoint separat */}
+              <div className="sc-reminder-row">
+                <span className="sc-reminder-label">
+                  <span className="sc-bell-badge"><img src={iconBellBlue} alt="" /></span>
+                  Reminder cu 1 oră înainte
+                </span>
+                {booking.reminder_enabled
+                  ? <img className="sc-switch-img" src={switchOn} alt="Pornit" />
+                  : <span className="sc-switch-off" role="img" aria-label="Oprit" />}
+              </div>
+
+              <section className="sc-howto">
+                <h3>Cum intri la {lowerFirst(booking.facility)}</h3>
+                <p>
+                  Prezintă codul rezervării la recepția din {booking.building_name}. Accesul corespunde
+                  intervalului {times.timeText} din {dayMonth}.
+                </p>
+              </section>
+
+              <button type="button" className="sc-btn-dark" onClick={() => setCurrentScreen('my_bookings')}>
+                Vezi rezervările mele
+                <img src={iconArrowLime} alt="" />
+              </button>
+              <button type="button" className="sc-btn-secondary" onClick={() => setCurrentScreen('facilities')}>
+                Înapoi la facilități
+              </button>
+              {/* Dialogul de anulare (Figma 09) și POST /bookings/{id}/cancel vin cu KAN-62 și KAN-60 */}
+              <button type="button" className="sc-btn-danger" onClick={() => setCurrentScreen('my_bookings')}>
+                Anulează rezervarea
+              </button>
+            </div>
+          );
+        })() : (
+          <div className="sc-stack">
+            <div className="sc-note-box">
+              <img src={iconInfoBlue} alt="" />
+              <span>Codul de acces apare aici după plata unei rezervări.</span>
+            </div>
+            <button type="button" className="sc-btn-secondary" onClick={() => setCurrentScreen('my_bookings')}>
+              Vezi rezervările mele
             </button>
           </div>
-        )}
+        ))}
 
         {/* ---------------- 08. REZERVĂRILE MELE ---------------- */}
         {currentScreen === 'my_bookings' && (
@@ -1706,7 +2235,7 @@ export default function App() {
       {!AUTH_SCREENS.includes(currentScreen) && (
         <nav className="figma-bottom-nav sc-nav">
           {[
-            { label: 'Facilități', icon: navGrid, screens: ['facilities', 'facility_detail', 'choose_datetime', 'summary_payment'], onClick: () => setCurrentScreen('facilities') },
+            { label: 'Facilități', icon: navGrid, screens: ['facilities', 'facility_detail', 'choose_datetime', 'summary_payment', 'payment_failed'], onClick: () => setCurrentScreen('facilities') },
             { label: 'Hartă', icon: navMap, screens: ['map'], onClick: () => setCurrentScreen('map') },
             { label: 'Rezervările mele', icon: navCalendar, screens: ['my_bookings', 'confirmed_ticket'], onClick: () => setCurrentScreen('my_bookings') },
             { label: 'Cont', icon: navUser, screens: ['admin'], onClick: openAccount }
@@ -1717,7 +2246,8 @@ export default function App() {
               onClick={tab.onClick}
             >
               <span className="sc-nav-pill">
-                <span className="sc-nav-icon" style={{ '--icon': `url(${tab.icon})` }} />
+                {/* Ghilimelele sunt necesare: iconițele mici sunt incluse ca text (data URL) cu spații și caractere speciale */}
+                <span className="sc-nav-icon" style={{ '--icon': `url("${tab.icon}")` }} />
               </span>
               <span>{tab.label}</span>
             </button>
