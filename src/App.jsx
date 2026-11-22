@@ -1237,14 +1237,16 @@ export default function App() {
 
         {/* ---------------- 11. CONTUL MEU (KAN-56 - FIGMA 11) ---------------- */}
         {currentScreen === 'account' && (() => {
-          const name = authUser?.fullName || authUser?.name || 'Cosmin Flocea';
-          const email = authUser?.email || 'cosmin.flocea@student.usv.ro';
-          const role = authUser?.role || 'STUDENT';
-          const initials = name.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'CF';
+          const name = authUser?.fullName || authUser?.name || 'Utilizator';
+          const email = authUser?.email || '—';
+          const role = authUser?.roleType || authUser?.role || 'STUDENT';
+          const initials = name.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U';
           
           const roleMeta = {
             STUDENT: { label: 'Student USV', color: '#0284C7', bg: '#E0F2FE' },
+            PROFESSOR: { label: 'Cadru Didactic / Profesor', color: '#059669', bg: '#D1FAE5' },
             STAFF: { label: 'Cadru Didactic / Personal', color: '#059669', bg: '#D1FAE5' },
+            AMATEUR: { label: 'Amator / Extern', color: '#D97706', bg: '#FEF3C7' },
             EXTERNAL: { label: 'Amator / Extern', color: '#D97706', bg: '#FEF3C7' },
             RECEPTIONIST: { label: 'Recepționer Campus', color: '#7C3AED', bg: '#EDE9FE' },
             ADMIN: { label: 'Administrator Sistem', color: '#4F46E5', bg: '#EEF2FF' }
@@ -1284,15 +1286,15 @@ export default function App() {
                 <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--border-light)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', textAlign: 'left' }}>
                   <div style={{ background: 'var(--bg-page)', padding: '8px 10px', borderRadius: '8px' }}>
                     <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block', textTransform: 'uppercase', fontWeight: 700 }}>Telefon</span>
-                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)' }}>{authUser?.phone || '0740 123 456'}</span>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)' }}>{authUser?.phone || authUser?.phoneNumber || '—'}</span>
                   </div>
                   <div style={{ background: 'var(--bg-page)', padding: '8px 10px', borderRadius: '8px' }}>
                     <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block', textTransform: 'uppercase', fontWeight: 700 }}>Nr. Matricol / ID</span>
-                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', fontFamily: 'monospace' }}>{authUser?.matricolNumber || 'USV-2024-8841'}</span>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', fontFamily: 'monospace' }}>{authUser?.matricolNumber || authUser?.matricol_number || '—'}</span>
                   </div>
                   <div style={{ background: 'var(--bg-page)', padding: '8px 10px', borderRadius: '8px', gridColumn: 'span 2' }}>
                     <span style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'block', textTransform: 'uppercase', fontWeight: 700 }}>Facultate / Depart.</span>
-                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)' }}>{authUser?.faculty || 'Inginerie Electrică și Știința Calculatoarelor (FIESC)'}</span>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)' }}>{authUser?.faculty || authUser?.department || '—'}</span>
                   </div>
                 </div>
               </div>
@@ -1388,18 +1390,6 @@ export default function App() {
                 </h4>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <button
-                    className="btn-figma-dark"
-                    style={{ width: '100%', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--card-bg)', border: '1px solid var(--border-light)', color: 'var(--text-main)' }}
-                    onClick={() => setCurrentScreen('reception')}
-                  >
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '16px' }}>📱</span>
-                      <span style={{ fontWeight: 700, fontSize: '12px' }}>Scanare cod QR la recepție (Figma 12)</span>
-                    </span>
-                    <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>➔</span>
-                  </button>
-
                   <button
                     className="btn-figma-dark"
                     style={{ width: '100%', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--card-bg)', border: '1px solid var(--border-light)', color: 'var(--text-main)' }}
