@@ -1522,6 +1522,18 @@ export default function App() {
                   <button
                     className="btn-figma-dark"
                     style={{ width: '100%', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--card-bg)', border: '1px solid var(--border-light)', color: 'var(--text-main)' }}
+                    onClick={() => setCurrentScreen('reception')}
+                  >
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '16px' }}>🎟️</span>
+                      <span style={{ fontWeight: 700, fontSize: '12px' }}>Recepție (Scanare & Validare QR)</span>
+                    </span>
+                    <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>➔</span>
+                  </button>
+
+                  <button
+                    className="btn-figma-dark"
+                    style={{ width: '100%', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--card-bg)', border: '1px solid var(--border-light)', color: 'var(--text-main)' }}
                     onClick={openAdminPanel}
                   >
                     <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
