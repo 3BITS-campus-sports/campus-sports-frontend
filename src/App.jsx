@@ -283,6 +283,10 @@ export default function App() {
   const [userBookingsLoading, setUserBookingsLoading] = useState(false);
   const [userBookingsError, setUserBookingsError] = useState('');
 
+  // State Harta Campus (KAN-58 - Figma 10)
+  const [selectedPinId, setSelectedPinId] = useState(1);
+  const [mapFilter, setMapFilter] = useState('Toate');
+
   // ================= ADMIN STATE (KAN-42, KAN-45, KAN-47) =================
   const [adminTab, setAdminTab] = useState('facilities'); // 'facilities' | 'users'
   const [dbFacilities, setDbFacilities] = useState([]);
@@ -2678,8 +2682,6 @@ export default function App() {
 
         {/* ---------------- 10. HARTA CAMPUSULUI (KAN-58 - FIGMA 10) ---------------- */}
         {currentScreen === 'map' && (() => {
-          const [selectedPinId, setSelectedPinId] = useState(1);
-          const [mapFilter, setMapFilter] = useState('Toate');
 
           const campusPins = [
             { id: 1, facilityId: 1, name: 'Teren Fotbal Sintetic', type: 'Sporturi', icon: '⚽', x: 280, y: 70, color: '#16A34A', zone: 'Complex Sportiv Corp E' },
