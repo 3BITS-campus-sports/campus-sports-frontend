@@ -84,7 +84,7 @@ export default function MyBookingsScreen({
         </div>
       )}
 
-      {!userBookingsLoading && userBookings.length === 0 && (
+      {!userBookingsLoading && !userBookingsError && userBookings.length === 0 && (
         <div style={{
           textAlign: 'center',
           padding: '36px 16px',

@@ -9,6 +9,8 @@ export default function AccountScreen({
   setCurrency,
   lang,
   setLang,
+  canUseReception,
+  canUseAdmin,
   onNavigateReception,
   onNavigateAdmin,
   onNavigateMyBookings,
@@ -211,43 +213,49 @@ export default function AccountScreen({
         </h4>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <button
-            className="btn-figma-dark"
-            style={{
-              width: '100%',
-              justifyContent: 'space-between',
-              padding: '10px 14px',
-              background: 'var(--card-bg)',
-              border: '1px solid var(--border-light)',
-              color: 'var(--text-main)'
-            }}
-            onClick={onNavigateReception}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '16px' }}>🎟️</span>
-              <span style={{ fontWeight: 700, fontSize: '12px' }}>Recepție (Scanare & Validare QR)</span>
-            </span>
-            <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>➔</span>
-          </button>
+          {/* Recepția doar pentru RECEPTIONIST și ADMIN (KAN-68) */}
+          {canUseReception && (
+            <button
+              className="btn-figma-dark"
+              style={{
+                width: '100%',
+                justifyContent: 'space-between',
+                padding: '10px 14px',
+                background: 'var(--card-bg)',
+                border: '1px solid var(--border-light)',
+                color: 'var(--text-main)'
+              }}
+              onClick={onNavigateReception}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '16px' }}>🎟️</span>
+                <span style={{ fontWeight: 700, fontSize: '12px' }}>Recepție (Scanare & Validare QR)</span>
+              </span>
+              <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>➔</span>
+            </button>
+          )}
 
-          <button
-            className="btn-figma-dark"
-            style={{
-              width: '100%',
-              justifyContent: 'space-between',
-              padding: '10px 14px',
-              background: 'var(--card-bg)',
-              border: '1px solid var(--border-light)',
-              color: 'var(--text-main)'
-            }}
-            onClick={onNavigateAdmin}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '16px' }}>🛠️</span>
-              <span style={{ fontWeight: 700, fontSize: '12px' }}>Panou Administrare Baze de Date</span>
-            </span>
-            <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>➔</span>
-          </button>
+          {/* Panoul Admin doar pentru ADMIN (KAN-68) */}
+          {canUseAdmin && (
+            <button
+              className="btn-figma-dark"
+              style={{
+                width: '100%',
+                justifyContent: 'space-between',
+                padding: '10px 14px',
+                background: 'var(--card-bg)',
+                border: '1px solid var(--border-light)',
+                color: 'var(--text-main)'
+              }}
+              onClick={onNavigateAdmin}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '16px' }}>🛠️</span>
+                <span style={{ fontWeight: 700, fontSize: '12px' }}>Panou Administrare Baze de Date</span>
+              </span>
+              <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>➔</span>
+            </button>
+          )}
 
           <button
             className="btn-figma-dark"

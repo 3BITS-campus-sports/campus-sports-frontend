@@ -70,8 +70,9 @@ export const requestLogin = async (email, password) => {
   }
 };
 
-// Înregistrare cont student (Figma 02 / POST /auth/register)
-export const requestRegister = async ({ fullName, email, password, roleType = 'STUDENT' }) => {
+// Înregistrare cont (Figma 02 / POST /auth/register): rol, telefon și, pentru studenți, matricol și facultate (KAN-69)
+export const requestRegister = async ({ fullName, email, phone, password, roleType, matricolNumber, faculty }) => {
+  const isStudent = roleType === 'STUDENT';
   try {
     const res = await fetch('/api/v1/auth/register', {
       method: 'POST',
@@ -79,17 +80,18 @@ export const requestRegister = async ({ fullName, email, password, roleType = 'S
       body: JSON.stringify({
         fullName: fullName.trim(),
         email: email.trim(),
+        phone: phone.trim(),
         password,
-        roleType
+        roleType,
+        ...(isStudent ? { matricolNumber: matricolNumber.trim(), faculty: faculty.trim() } : {})
       })
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
+      // 409: backend-ul spune dacă emailul sau numărul matricol este deja folosit
       return {
         ok: false,
-        message: res.status === 409
-          ? 'Există deja un cont cu acest email.'
-          : body.error?.message || `Eroare ${res.status}`
+        message: body.error?.message || (res.status === 409 ? 'Există deja un cont cu aceste date.' : `Eroare ${res.status}`)
       };
     }
     return { ok: true };
@@ -112,9 +114,24 @@ export const fetchFacilities = async () => {
   }
 };
 
-// Încărcare utilizatori Admin (GET /users)
-export const fetchUsers = async () => {
-  const res = await fetch('/api/v1/users');
+// Antetul Authorization pentru cererile care cer autentificare
+export const authHeaders = (authToken) => (authToken ? { Authorization: `Bearer ${authToken}` } : {});
+
+// Echipamentele de închiriat pentru o facilitate (GET /facilities/:id/equipment, KAN-71)
+export const fetchFacilityEquipment = async (facilityId) => {
+  try {
+    const res = await fetch(`/api/v1/facilities/${facilityId}/equipment`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+};
+
+// Încărcare utilizatori Admin (GET /users) – doar pentru rolul ADMIN (KAN-68)
+export const fetchUsers = async (authToken) => {
+  const res = await fetch('/api/v1/users', { headers: authHeaders(authToken) });
   if (!res.ok) {
     throw new Error(`serverul a răspuns cu ${res.status}`);
   }
@@ -141,7 +158,7 @@ export const fetchAvailability = async (facilityId, isoDate, authToken) => {
 };
 
 // Inițiere rezervare cu blocare de 5 minute (POST /bookings)
-export const createBooking = async ({ facilityId, bookingDate, startTime, endTime, reminderEnabled }, authToken) => {
+export const createBooking = async ({ facilityId, bookingDate, startTime, endTime, reminderEnabled, equipment = [] }, authToken) => {
   try {
     const res = await fetch('/api/v1/bookings', {
       method: 'POST',
@@ -149,7 +166,7 @@ export const createBooking = async ({ facilityId, bookingDate, startTime, endTim
         'Content-Type': 'application/json',
         ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
       },
-      body: JSON.stringify({ facilityId, bookingDate, startTime, endTime, reminderEnabled })
+      body: JSON.stringify({ facilityId, bookingDate, startTime, endTime, reminderEnabled, equipment })
     });
     const body = await res.json().catch(() => ({}));
     return { status: res.status, body };
@@ -179,16 +196,21 @@ export const payBooking = async (bookingId, simulateFailure, authToken) => {
   }
 };
 
-// Rezervările proprii (GET /bookings/my-bookings)
+// Rezervările proprii (GET /bookings/my-bookings). La eroare aruncă un mesaj pentru ecran (KAN-70)
 export const fetchMyBookings = async (scope, authToken) => {
-  const res = await fetch(`/api/v1/bookings/my-bookings?scope=${scope}`, {
-    headers: authToken ? { Authorization: `Bearer ${authToken}` } : {}
-  });
-  if (res.ok) {
-    const data = await res.json();
-    return Array.isArray(data) ? data : [];
+  let res;
+  try {
+    res = await fetch(`/api/v1/bookings/my-bookings?scope=${scope}`, {
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : {}
+    });
+  } catch {
+    throw new Error(SERVER_DOWN_MESSAGE);
   }
-  return [];
+  if (!res.ok) {
+    throw new Error(await readApiError(res));
+  }
+  const data = await res.json().catch(() => []);
+  return Array.isArray(data) ? data : [];
 };
 
 // Anulare rezervare (POST /bookings/:id/cancel)
@@ -209,8 +231,8 @@ export const cancelBooking = async (bookingId, reason, notes, authToken) => {
   }
 };
 
-// Scanare și validare bilet QR (POST /qr/validate)
-export const validateQr = async (token, receptionistId, authToken) => {
+// Scanare și validare bilet QR (POST /qr/validate) – recepționerul este utilizatorul logat (KAN-68)
+export const validateQr = async (token, authToken) => {
   try {
     const res = await fetch('/api/v1/qr/validate', {
       method: 'POST',
@@ -218,7 +240,7 @@ export const validateQr = async (token, receptionistId, authToken) => {
         'Content-Type': 'application/json',
         ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
       },
-      body: JSON.stringify({ token, receptionistId })
+      body: JSON.stringify({ token })
     });
     const data = await res.json().catch(() => ({}));
     return { ok: res.ok, data, status: res.status };

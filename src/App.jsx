@@ -11,11 +11,13 @@ import {
   fetchFacilities,
   fetchUsers,
   fetchAvailability,
+  fetchFacilityEquipment,
   createBooking,
   payBooking as apiPayBooking,
   fetchMyBookings,
   cancelBooking,
   validateQr,
+  authHeaders,
   readApiError,
   apiErrorMessage
 } from './api/client';
@@ -24,9 +26,7 @@ import {
   fallbackFacilities,
   emptyRegisterForm,
   emptyFacilityForm,
-  emptyUserForm,
-  defaultUpcomingBookings,
-  defaultHistoryBookings
+  emptyUserForm
 } from './constants/mockData';
 
 import {
@@ -60,7 +60,15 @@ const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const MIN_PASSWORD_LENGTH = 8;
 const PASSWORD_LETTER = /[A-Za-zĂÂÎȘȚăâîșț]/;
 const PASSWORD_DIGIT = /\d/;
+// Aceleași reguli ca în backend (POST /auth/register, KAN-69)
+const PHONE_CHARS = /^\+?[\d\s().-]+$/;
+const MIN_PHONE_DIGITS = 10;
+const MAX_PHONE_DIGITS = 15;
+const MATRICOL_PATTERN = /^[A-Za-z0-9/.-]{2,40}$/;
 const PENDING_STATUSES = ['INITIATED', 'PENDING_PAYMENT'];
+// Cine vede panoul Admin și ecranul de Recepție (aceleași reguli ca în backend, KAN-68)
+const ADMIN_ROLES = ['ADMIN'];
+const RECEPTION_ROLES = ['RECEPTIONIST', 'ADMIN'];
 
 export default function App() {
   // ---------------- 1. Rutare & Autentificare ----------------
@@ -109,7 +117,9 @@ export default function App() {
   });
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [availability, setAvailability] = useState({ slots: [], loading: false, error: '' });
-  const [addEquipment, setAddEquipment] = useState(true);
+  // Echipamentul de închiriat al facilității alese (din baza de date) și id-urile bifate (KAN-71)
+  const [facilityEquipment, setFacilityEquipment] = useState([]);
+  const [selectedEquipmentIds, setSelectedEquipmentIds] = useState([]);
   const [booking, setBooking] = useState(null);
   const [bookingRequest, setBookingRequest] = useState({ loading: false, error: '' });
   const [payment, setPayment] = useState({ loading: false, error: '' });
@@ -129,7 +139,7 @@ export default function App() {
   const [mapFilter, setMapFilter] = useState('Toate');
 
   // ---------------- 7. Recepție QR (Cosmin) ----------------
-  const [receptionForm, setReceptionForm] = useState({ token: '', receptionistId: '5' });
+  const [receptionForm, setReceptionForm] = useState({ token: '' });
   const [receptionState, setReceptionState] = useState({ loading: false, result: null, error: '' });
 
   // ---------------- 8. Modale (Ghid, Anulare, Admin) ----------------
@@ -162,7 +172,7 @@ export default function App() {
 
   const loadUsersFromBackend = async () => {
     try {
-      const data = await fetchUsers();
+      const data = await fetchUsers(authToken);
       setDbUsers(data);
       setUsersLoadError('');
     } catch (err) {
@@ -173,8 +183,19 @@ export default function App() {
 
   useEffect(() => {
     loadFacilitiesFromBackend();
-    loadUsersFromBackend();
   }, []);
+
+  // Rolul utilizatorului logat decide ce butoane și ecrane de personal vede
+  const userRole = authUser?.roleType || authUser?.role || null;
+  const canUseAdmin = ADMIN_ROLES.includes(userRole);
+  const canUseReception = RECEPTION_ROLES.includes(userRole);
+
+  // Un utilizator fără rolul potrivit nu rămâne pe ecranul Admin sau Recepție (ex. după ieșirea din cont)
+  useEffect(() => {
+    if ((currentScreen === 'admin' && !canUseAdmin) || (currentScreen === 'reception' && !canUseReception)) {
+      setCurrentScreen(authToken ? 'account' : 'login');
+    }
+  }, [currentScreen, canUseAdmin, canUseReception, authToken]);
 
   // Lista activă de facilități (Postgres dacă e conectat, altfel fallback)
   const activeFacilitiesList = dbFacilities.length > 0 ? dbFacilities.map((f) => ({
@@ -204,10 +225,7 @@ export default function App() {
       beforeVisit: f.category === 'Înot'
         ? ['Adu echipamentul de înot și papucii.', 'Respectă intervalul rezervat și indicațiile personalului.', 'Pregătește codul rezervării pentru acces.']
         : ['Vino cu echipament sportiv adecvat.', 'Respectă intervalul rezervat și indicațiile personalului.', 'Pregătește codul rezervării pentru acces.'],
-      equipmentTitle: f.category === 'Înot' ? 'Echipament de înot' : 'Echipament',
-      equipmentOptions: f.category === 'Înot'
-        ? [{ name: 'Ochelari de înot', price: 4 }, { name: 'Bonetă de înot', price: 3 }, { name: 'Plută de înot', price: 3 }]
-        : [{ name: 'Echipament sportiv complet', price: 10 }]
+      equipmentTitle: f.category === 'Înot' ? 'Echipament de înot' : 'Echipament'
     }
   })) : fallbackFacilities;
 
@@ -238,6 +256,21 @@ export default function App() {
     const errors = {};
     if (registerForm.fullName.trim() === '') errors.fullName = 'Completează numele și prenumele';
     if (!EMAIL_PATTERN.test(registerForm.email.trim())) errors.email = 'Introdu o adresă de email validă';
+    const phone = registerForm.phone.trim();
+    const phoneDigits = phone.replace(/\D/g, '').length;
+    if (phone === '') {
+      errors.phone = 'Completează numărul de telefon';
+    } else if (!PHONE_CHARS.test(phone) || phoneDigits < MIN_PHONE_DIGITS || phoneDigits > MAX_PHONE_DIGITS) {
+      errors.phone = `Telefonul trebuie să aibă între ${MIN_PHONE_DIGITS} și ${MAX_PHONE_DIGITS} cifre`;
+    }
+    if (registerForm.roleType === 'STUDENT') {
+      if (registerForm.matricolNumber.trim() === '') {
+        errors.matricolNumber = 'Completează numărul matricol';
+      } else if (!MATRICOL_PATTERN.test(registerForm.matricolNumber.trim())) {
+        errors.matricolNumber = 'Folosește doar litere, cifre, „/”, „-” sau „.” (2–40 de caractere)';
+      }
+      if (registerForm.faculty.trim().length < 3) errors.faculty = 'Completează facultatea';
+    }
     if (registerForm.password.length < MIN_PASSWORD_LENGTH) {
       errors.password = `Parola trebuie să aibă minimum ${MIN_PASSWORD_LENGTH} caractere`;
     } else if (!PASSWORD_LETTER.test(registerForm.password) || !PASSWORD_DIGIT.test(registerForm.password)) {
@@ -254,12 +287,7 @@ export default function App() {
     if (Object.keys(errors).length > 0) return;
 
     setAuthSubmitting(true);
-    const res = await requestRegister({
-      fullName: registerForm.fullName,
-      email: registerForm.email,
-      password: registerForm.password,
-      roleType: 'STUDENT'
-    });
+    const res = await requestRegister(registerForm);
 
     if (!res.ok) {
       setRegisterErrors({ general: res.message });
@@ -285,9 +313,19 @@ export default function App() {
   };
 
   // ================= REZERVARE & DISPONIBILITATE =================
-  const openFacilityDetails = (facility) => {
+  const openFacilityDetails = async (facility) => {
     setSelectedFacility(facility);
+    setFacilityEquipment([]);
+    setSelectedEquipmentIds([]);
     setCurrentScreen('facility_detail');
+    setFacilityEquipment(await fetchFacilityEquipment(facility.id));
+  };
+
+  const toggleEquipment = (equipmentId) => {
+    setBookingRequest({ loading: false, error: '' });
+    setSelectedEquipmentIds((ids) => (ids.includes(equipmentId)
+      ? ids.filter((id) => id !== equipmentId)
+      : [...ids, equipmentId]));
   };
 
   const loadSlotAvailability = async (facility, isoDate) => {
@@ -327,7 +365,10 @@ export default function App() {
 
   const openSummary = async () => {
     if (!selectedSlot || bookingRequest.loading) return;
+    // Aceeași rezervare se refolosește doar dacă nici echipamentul ales nu s-a schimbat
+    const equipmentKey = [...selectedEquipmentIds].sort((a, b) => a - b).join(',');
     const sameBooking = booking &&
+      booking.equipmentKey === equipmentKey &&
       booking.facility_id === selectedFacility.id &&
       new Date(booking.start_time).getTime() === new Date(selectedSlot.startTime).getTime() &&
       PENDING_STATUSES.includes(booking.status) &&
@@ -345,11 +386,12 @@ export default function App() {
       bookingDate: selectedDate,
       startTime: `${selectedSlot.startLabel}:00`,
       endTime: `${selectedSlot.endLabel}:00`,
-      reminderEnabled
+      reminderEnabled,
+      equipment: selectedEquipmentIds.map((equipmentId) => ({ equipmentId, quantity: 1 }))
     }, authToken);
 
     if (status === 201) {
-      setBooking(body);
+      setBooking({ ...body, equipmentKey });
       setBookingRequest({ loading: false, error: '' });
       setPayment({ loading: false, error: '' });
       setSimulateFailure(false);
@@ -415,22 +457,18 @@ export default function App() {
   }, [booking?.qr_payload]);
 
   // ================= REZERVĂRILE MELE =================
+  // Doar rezervările reale ale utilizatorului: listă goală -> mesajul „Nu ai nicio rezervare”, eroare -> mesaj (KAN-70)
   const loadUserBookings = async (scope = bookingsTab) => {
+    setUserBookings([]);
+    setUserBookingsError('');
     if (!authToken) {
-      setUserBookings(scope === 'upcoming' ? defaultUpcomingBookings : defaultHistoryBookings);
       return;
     }
     setUserBookingsLoading(true);
-    setUserBookingsError('');
     try {
-      const data = await fetchMyBookings(scope, authToken);
-      if (Array.isArray(data) && data.length > 0) {
-        setUserBookings(data);
-      } else {
-        setUserBookings(scope === 'upcoming' ? defaultUpcomingBookings : defaultHistoryBookings);
-      }
-    } catch {
-      setUserBookings(scope === 'upcoming' ? defaultUpcomingBookings : defaultHistoryBookings);
+      setUserBookings(await fetchMyBookings(scope, authToken));
+    } catch (err) {
+      setUserBookingsError(`Nu am putut încărca rezervările: ${err.message}`);
     } finally {
       setUserBookingsLoading(false);
     }
@@ -471,11 +509,7 @@ export default function App() {
       return;
     }
     setReceptionState({ loading: true, result: null, error: '' });
-    const { ok, data, status } = await validateQr(
-      receptionForm.token.trim(),
-      Number(receptionForm.receptionistId) || authUser?.id || 5,
-      authToken
-    );
+    const { ok, data, status } = await validateQr(receptionForm.token.trim(), authToken);
 
     if (ok && data.valid) {
       setReceptionState({ loading: false, result: data, error: '' });
@@ -493,7 +527,7 @@ export default function App() {
       const method = editingFacility ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders(authToken) },
         body: JSON.stringify(facilityForm)
       });
       if (res.ok) {
@@ -501,6 +535,8 @@ export default function App() {
         loadFacilitiesFromBackend();
         setShowAddFacilityModal(false);
         setEditingFacility(null);
+      } else {
+        alert(`Facilitatea nu a fost salvată: ${await readApiError(res)}`);
       }
     } catch (err) {
       alert(`Eroare conectare API: ${err.message}`);
@@ -519,7 +555,7 @@ export default function App() {
 
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders(authToken) },
         body: JSON.stringify(body)
       });
 
@@ -555,7 +591,11 @@ export default function App() {
       />
 
       {/* 2. Conținut Ecran Activ */}
-      <main className="figma-content" ref={screenContentRef}>
+      {/* figma-screen-content (index.css) face zona ecranului derulabilă; fără bara de jos pe Autentificare / Creare cont */}
+      <main
+        className={`figma-screen-content ${AUTH_SCREENS.includes(currentScreen) ? 'sc-no-nav' : ''}`}
+        ref={screenContentRef}
+      >
         {/* Autentificare & Creare Cont */}
         {currentScreen === 'login' && (
           <AuthScreen
@@ -603,6 +643,7 @@ export default function App() {
         {currentScreen === 'facility_detail' && selectedFacility && (
           <FacilityDetailScreen
             selectedFacility={selectedFacility}
+            facilityEquipment={facilityEquipment}
             onBack={() => setCurrentScreen('facilities')}
             onChooseDateTime={openChooseDateTime}
             onOpenHelp={() => setShowHelpModal(true)}
@@ -618,8 +659,9 @@ export default function App() {
             selectedDate={selectedDate}
             selectedSlot={selectedSlot}
             availability={availability}
-            addEquipment={addEquipment}
-            setAddEquipment={setAddEquipment}
+            facilityEquipment={facilityEquipment}
+            selectedEquipmentIds={selectedEquipmentIds}
+            onToggleEquipment={toggleEquipment}
             bookingRequest={bookingRequest}
             onBack={() => setCurrentScreen('facility_detail')}
             onChangeCalendarMonth={changeCalendarMonth}
@@ -719,6 +761,8 @@ export default function App() {
             setCurrency={setCurrency}
             lang={lang}
             setLang={setLang}
+            canUseReception={canUseReception}
+            canUseAdmin={canUseAdmin}
             onNavigateReception={() => setCurrentScreen('reception')}
             onNavigateAdmin={() => {
               setCurrentScreen('admin');
@@ -731,7 +775,7 @@ export default function App() {
         )}
 
         {/* Recepție Scanner QR */}
-        {currentScreen === 'reception' && (
+        {currentScreen === 'reception' && canUseReception && (
           <ReceptionScreen
             receptionForm={receptionForm}
             setReceptionForm={setReceptionForm}
@@ -744,7 +788,7 @@ export default function App() {
         )}
 
         {/* Panou Admin */}
-        {currentScreen === 'admin' && (
+        {currentScreen === 'admin' && canUseAdmin && (
           <AdminScreen
             adminTab={adminTab}
             setAdminTab={setAdminTab}

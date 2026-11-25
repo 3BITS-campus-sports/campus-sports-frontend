@@ -22,7 +22,8 @@ import {
   toIsoDate,
   formatLongDate,
   buildMonthCells,
-  slotStatusText
+  slotStatusText,
+  formatAmount
 } from '../constants/dateTimeHelpers';
 
 export default function ChooseDatetimeScreen({
@@ -31,8 +32,9 @@ export default function ChooseDatetimeScreen({
   selectedDate,
   selectedSlot,
   availability,
-  addEquipment,
-  setAddEquipment,
+  facilityEquipment = [],
+  selectedEquipmentIds = [],
+  onToggleEquipment,
   bookingRequest,
   onBack,
   onChangeCalendarMonth,
@@ -52,6 +54,8 @@ export default function ChooseDatetimeScreen({
   const isFreeDayEmpty = !availability.loading && !availability.error &&
     availability.slots.length > 0 && availability.slots.every((slot) => !slot.isAvailable);
   const canContinue = Boolean(selectedSlot) && !availability.loading && !bookingRequest.loading;
+  // Echipamentul se plătește pe oră: costul pentru un slot = preț pe oră × durata slotului
+  const slotHours = (selectedFacility.slotMinutes || 60) / 60;
   const monthTitle = `${MONTHS_RO[calendarMonth.month][0].toUpperCase()}${MONTHS_RO[calendarMonth.month].slice(1)} ${calendarMonth.year}`;
 
   return (
@@ -169,20 +173,28 @@ export default function ChooseDatetimeScreen({
             <span>Fără suprapuneri: intervalele ocupate sau care se suprapun cu rezervările tale sunt dezactivate.</span>
           </div>
 
-          <label className="sc-equipment-toggle">
-            <input
-              type="checkbox"
-              checked={addEquipment}
-              onChange={(e) => setAddEquipment(e.target.checked)}
-            />
-            <span className="sc-checkbox" aria-hidden="true">
-              <img src={iconCheck} alt="" />
-            </span>
-            <span className="sc-equipment-text">
-              <strong>Adaugă {(selectedFacility.usefulInfo.equipmentTitle || 'echipament').toLowerCase()}</strong>
-              <span>+10 RON</span>
-            </span>
-          </label>
+          {/* Câte o bifă pentru fiecare echipament din baza de date (KAN-71) */}
+          {facilityEquipment.length > 0 && (
+            <div className="sc-equipment-list">
+              <span className="sc-label">{selectedFacility.usefulInfo.equipmentTitle || 'Echipament'} de închiriat (opțional)</span>
+              {facilityEquipment.map((item) => (
+                <label key={item.equipmentId} className="sc-equipment-toggle">
+                  <input
+                    type="checkbox"
+                    checked={selectedEquipmentIds.includes(item.equipmentId)}
+                    onChange={() => onToggleEquipment(item.equipmentId)}
+                  />
+                  <span className="sc-checkbox" aria-hidden="true">
+                    <img src={iconCheck} alt="" />
+                  </span>
+                  <span className="sc-equipment-text">
+                    <strong>{item.name}</strong>
+                    <span>+{formatAmount(item.hourlyFee * slotHours)} RON</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
         </>
       )}
 

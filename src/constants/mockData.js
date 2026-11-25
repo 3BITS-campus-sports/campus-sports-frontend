@@ -19,8 +19,7 @@ export const fallbackFacilities = [
       location: 'Complex sportiv, corp E',
       program: 'Luni - duminică, 08:00 - 23:00',
       notice: 'Nocturnă LED automată inclusă',
-      beforeVisit: ['Încălțăminte sintetic/tartan', 'Respectă intervalul selectat'],
-      equipmentOptions: [{ name: 'Minge oficială', price: 10 }]
+      beforeVisit: ['Încălțăminte sintetic/tartan', 'Respectă intervalul selectat']
     }
   },
   {
@@ -41,8 +40,7 @@ export const fallbackFacilities = [
       location: 'Baza sportivă campus',
       program: 'Zilnic, 08:00 - 21:00',
       notice: 'Acces doar cu încălțăminte curată',
-      beforeVisit: ['Rachete proprii sau închiriate', 'Respectă durata slotului'],
-      equipmentOptions: [{ name: 'Set 2 rachete', price: 10 }]
+      beforeVisit: ['Rachete proprii sau închiriate', 'Respectă durata slotului']
     }
   },
   {
@@ -63,8 +61,7 @@ export const fallbackFacilities = [
       location: 'Complex sportiv, corp E, parter',
       program: 'Luni - vineri, 06:00 - 21:00',
       notice: 'Rezervările din timp beneficiază de reducere',
-      beforeVisit: ['Cască și ochelari obligatorii', 'Duș obligatoriu înainte'],
-      equipmentOptions: [{ name: 'Ochelari înot', price: 4 }, { name: 'Cască silicon', price: 3 }]
+      beforeVisit: ['Cască și ochelari obligatorii', 'Duș obligatoriu înainte']
     }
   },
   {
@@ -85,8 +82,7 @@ export const fallbackFacilities = [
       location: 'Corp D, demisol',
       program: 'Luni - duminică, 08:00 - 22:00',
       notice: 'Reducere 50% pentru studenții USV',
-      beforeVisit: ['Prosop pe aparate', 'Pantofi sport de schimb'],
-      equipmentOptions: [{ name: 'Prosop sală', price: 3 }]
+      beforeVisit: ['Prosop pe aparate', 'Pantofi sport de schimb']
     }
   },
   {
@@ -107,8 +103,7 @@ export const fallbackFacilities = [
       location: 'Corp E, etaj',
       program: 'Luni - sâmbătă, 08:00 - 21:00',
       notice: 'Timp maxim recomandat: 15 min per repriză',
-      beforeVisit: ['Două prosoape mari', 'Hidratare corespunzătoare'],
-      equipmentOptions: [{ name: 'Prosop saună', price: 5 }]
+      beforeVisit: ['Două prosoape mari', 'Hidratare corespunzătoare']
     }
   }
 ];
@@ -121,8 +116,12 @@ export const campusPins = [
 ];
 
 export const emptyRegisterForm = {
+  roleType: 'STUDENT',
   fullName: '',
   email: '',
+  phone: '',
+  matricolNumber: '',
+  faculty: '',
   password: '',
   acceptedTerms: false
 };
@@ -155,32 +154,3 @@ export const roleMetaMap = {
   RECEPTIONIST: { label: 'Recepționer Campus', color: '#7C3AED', bg: '#EDE9FE' },
   ADMIN: { label: 'Administrator Sistem', color: '#4F46E5', bg: '#EEF2FF' }
 };
-
-export const defaultUpcomingBookings = [
-  {
-    id: 'SC-271026-001',
-    facilityName: 'Bazin - Complex sportiv',
-    dateText: 'Marți, 27 octombrie 2026',
-    timeText: '16:00 - 17:00 · 60 min',
-    totalPaidRon: '22,50',
-    totalPaidEur: '4.50',
-    status: 'Confirmată'
-  }
-];
-
-export const defaultHistoryBookings = [
-  {
-    id: 'SC-201026-084',
-    facilityName: 'Saună - Complex sportiv',
-    dateText: 'Vineri, 20 octombrie 2026, 18:00 - 19:00 · 60 min',
-    totalPaidRon: '20,00',
-    status: 'Finalizată'
-  },
-  {
-    id: 'SC-121026-019',
-    facilityName: 'Teren de tenis - Campus',
-    dateText: 'Joi, 12 octombrie 2026, 16:00 - 17:00 · 60 min',
-    totalPaidRon: '40,00',
-    status: 'Finalizată'
-  }
-];
