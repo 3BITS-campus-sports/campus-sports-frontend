@@ -591,7 +591,11 @@ export default function App() {
       />
 
       {/* 2. Conținut Ecran Activ */}
-      <main className="figma-content" ref={screenContentRef}>
+      {/* figma-screen-content (index.css) face zona ecranului derulabilă; fără bara de jos pe Autentificare / Creare cont */}
+      <main
+        className={`figma-screen-content ${AUTH_SCREENS.includes(currentScreen) ? 'sc-no-nav' : ''}`}
+        ref={screenContentRef}
+      >
         {/* Autentificare & Creare Cont */}
         {currentScreen === 'login' && (
           <AuthScreen
