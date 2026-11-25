@@ -25,9 +25,7 @@ import {
   fallbackFacilities,
   emptyRegisterForm,
   emptyFacilityForm,
-  emptyUserForm,
-  defaultUpcomingBookings,
-  defaultHistoryBookings
+  emptyUserForm
 } from './constants/mockData';
 
 import {
@@ -445,22 +443,18 @@ export default function App() {
   }, [booking?.qr_payload]);
 
   // ================= REZERVĂRILE MELE =================
+  // Doar rezervările reale ale utilizatorului: listă goală -> mesajul „Nu ai nicio rezervare”, eroare -> mesaj (KAN-70)
   const loadUserBookings = async (scope = bookingsTab) => {
+    setUserBookings([]);
+    setUserBookingsError('');
     if (!authToken) {
-      setUserBookings(scope === 'upcoming' ? defaultUpcomingBookings : defaultHistoryBookings);
       return;
     }
     setUserBookingsLoading(true);
-    setUserBookingsError('');
     try {
-      const data = await fetchMyBookings(scope, authToken);
-      if (Array.isArray(data) && data.length > 0) {
-        setUserBookings(data);
-      } else {
-        setUserBookings(scope === 'upcoming' ? defaultUpcomingBookings : defaultHistoryBookings);
-      }
-    } catch {
-      setUserBookings(scope === 'upcoming' ? defaultUpcomingBookings : defaultHistoryBookings);
+      setUserBookings(await fetchMyBookings(scope, authToken));
+    } catch (err) {
+      setUserBookingsError(`Nu am putut încărca rezervările: ${err.message}`);
     } finally {
       setUserBookingsLoading(false);
     }

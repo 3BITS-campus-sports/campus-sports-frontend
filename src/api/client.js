@@ -184,16 +184,21 @@ export const payBooking = async (bookingId, simulateFailure, authToken) => {
   }
 };
 
-// Rezervările proprii (GET /bookings/my-bookings)
+// Rezervările proprii (GET /bookings/my-bookings). La eroare aruncă un mesaj pentru ecran (KAN-70)
 export const fetchMyBookings = async (scope, authToken) => {
-  const res = await fetch(`/api/v1/bookings/my-bookings?scope=${scope}`, {
-    headers: authToken ? { Authorization: `Bearer ${authToken}` } : {}
-  });
-  if (res.ok) {
-    const data = await res.json();
-    return Array.isArray(data) ? data : [];
+  let res;
+  try {
+    res = await fetch(`/api/v1/bookings/my-bookings?scope=${scope}`, {
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : {}
+    });
+  } catch {
+    throw new Error(SERVER_DOWN_MESSAGE);
   }
-  return [];
+  if (!res.ok) {
+    throw new Error(await readApiError(res));
+  }
+  const data = await res.json().catch(() => []);
+  return Array.isArray(data) ? data : [];
 };
 
 // Anulare rezervare (POST /bookings/:id/cancel)

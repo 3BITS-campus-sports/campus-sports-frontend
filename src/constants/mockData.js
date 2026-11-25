@@ -159,32 +159,3 @@ export const roleMetaMap = {
   RECEPTIONIST: { label: 'Recepționer Campus', color: '#7C3AED', bg: '#EDE9FE' },
   ADMIN: { label: 'Administrator Sistem', color: '#4F46E5', bg: '#EEF2FF' }
 };
-
-export const defaultUpcomingBookings = [
-  {
-    id: 'SC-271026-001',
-    facilityName: 'Bazin - Complex sportiv',
-    dateText: 'Marți, 27 octombrie 2026',
-    timeText: '16:00 - 17:00 · 60 min',
-    totalPaidRon: '22,50',
-    totalPaidEur: '4.50',
-    status: 'Confirmată'
-  }
-];
-
-export const defaultHistoryBookings = [
-  {
-    id: 'SC-201026-084',
-    facilityName: 'Saună - Complex sportiv',
-    dateText: 'Vineri, 20 octombrie 2026, 18:00 - 19:00 · 60 min',
-    totalPaidRon: '20,00',
-    status: 'Finalizată'
-  },
-  {
-    id: 'SC-121026-019',
-    facilityName: 'Teren de tenis - Campus',
-    dateText: 'Joi, 12 octombrie 2026, 16:00 - 17:00 · 60 min',
-    totalPaidRon: '40,00',
-    status: 'Finalizată'
-  }
-];
