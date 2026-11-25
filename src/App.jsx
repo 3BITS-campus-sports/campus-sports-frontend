@@ -16,6 +16,7 @@ import {
   fetchMyBookings,
   cancelBooking,
   validateQr,
+  authHeaders,
   readApiError,
   apiErrorMessage
 } from './api/client';
@@ -61,6 +62,9 @@ const MIN_PASSWORD_LENGTH = 8;
 const PASSWORD_LETTER = /[A-Za-zĂÂÎȘȚăâîșț]/;
 const PASSWORD_DIGIT = /\d/;
 const PENDING_STATUSES = ['INITIATED', 'PENDING_PAYMENT'];
+// Cine vede panoul Admin și ecranul de Recepție (aceleași reguli ca în backend, KAN-68)
+const ADMIN_ROLES = ['ADMIN'];
+const RECEPTION_ROLES = ['RECEPTIONIST', 'ADMIN'];
 
 export default function App() {
   // ---------------- 1. Rutare & Autentificare ----------------
@@ -129,7 +133,7 @@ export default function App() {
   const [mapFilter, setMapFilter] = useState('Toate');
 
   // ---------------- 7. Recepție QR (Cosmin) ----------------
-  const [receptionForm, setReceptionForm] = useState({ token: '', receptionistId: '5' });
+  const [receptionForm, setReceptionForm] = useState({ token: '' });
   const [receptionState, setReceptionState] = useState({ loading: false, result: null, error: '' });
 
   // ---------------- 8. Modale (Ghid, Anulare, Admin) ----------------
@@ -162,7 +166,7 @@ export default function App() {
 
   const loadUsersFromBackend = async () => {
     try {
-      const data = await fetchUsers();
+      const data = await fetchUsers(authToken);
       setDbUsers(data);
       setUsersLoadError('');
     } catch (err) {
@@ -173,8 +177,19 @@ export default function App() {
 
   useEffect(() => {
     loadFacilitiesFromBackend();
-    loadUsersFromBackend();
   }, []);
+
+  // Rolul utilizatorului logat decide ce butoane și ecrane de personal vede
+  const userRole = authUser?.roleType || authUser?.role || null;
+  const canUseAdmin = ADMIN_ROLES.includes(userRole);
+  const canUseReception = RECEPTION_ROLES.includes(userRole);
+
+  // Un utilizator fără rolul potrivit nu rămâne pe ecranul Admin sau Recepție (ex. după ieșirea din cont)
+  useEffect(() => {
+    if ((currentScreen === 'admin' && !canUseAdmin) || (currentScreen === 'reception' && !canUseReception)) {
+      setCurrentScreen(authToken ? 'account' : 'login');
+    }
+  }, [currentScreen, canUseAdmin, canUseReception, authToken]);
 
   // Lista activă de facilități (Postgres dacă e conectat, altfel fallback)
   const activeFacilitiesList = dbFacilities.length > 0 ? dbFacilities.map((f) => ({
@@ -471,11 +486,7 @@ export default function App() {
       return;
     }
     setReceptionState({ loading: true, result: null, error: '' });
-    const { ok, data, status } = await validateQr(
-      receptionForm.token.trim(),
-      Number(receptionForm.receptionistId) || authUser?.id || 5,
-      authToken
-    );
+    const { ok, data, status } = await validateQr(receptionForm.token.trim(), authToken);
 
     if (ok && data.valid) {
       setReceptionState({ loading: false, result: data, error: '' });
@@ -493,7 +504,7 @@ export default function App() {
       const method = editingFacility ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders(authToken) },
         body: JSON.stringify(facilityForm)
       });
       if (res.ok) {
@@ -501,6 +512,8 @@ export default function App() {
         loadFacilitiesFromBackend();
         setShowAddFacilityModal(false);
         setEditingFacility(null);
+      } else {
+        alert(`Facilitatea nu a fost salvată: ${await readApiError(res)}`);
       }
     } catch (err) {
       alert(`Eroare conectare API: ${err.message}`);
@@ -519,7 +532,7 @@ export default function App() {
 
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders(authToken) },
         body: JSON.stringify(body)
       });
 
@@ -719,6 +732,8 @@ export default function App() {
             setCurrency={setCurrency}
             lang={lang}
             setLang={setLang}
+            canUseReception={canUseReception}
+            canUseAdmin={canUseAdmin}
             onNavigateReception={() => setCurrentScreen('reception')}
             onNavigateAdmin={() => {
               setCurrentScreen('admin');
@@ -731,7 +746,7 @@ export default function App() {
         )}
 
         {/* Recepție Scanner QR */}
-        {currentScreen === 'reception' && (
+        {currentScreen === 'reception' && canUseReception && (
           <ReceptionScreen
             receptionForm={receptionForm}
             setReceptionForm={setReceptionForm}
@@ -744,7 +759,7 @@ export default function App() {
         )}
 
         {/* Panou Admin */}
-        {currentScreen === 'admin' && (
+        {currentScreen === 'admin' && canUseAdmin && (
           <AdminScreen
             adminTab={adminTab}
             setAdminTab={setAdminTab}

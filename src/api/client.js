@@ -112,9 +112,12 @@ export const fetchFacilities = async () => {
   }
 };
 
-// Încărcare utilizatori Admin (GET /users)
-export const fetchUsers = async () => {
-  const res = await fetch('/api/v1/users');
+// Antetul Authorization pentru cererile care cer autentificare
+export const authHeaders = (authToken) => (authToken ? { Authorization: `Bearer ${authToken}` } : {});
+
+// Încărcare utilizatori Admin (GET /users) – doar pentru rolul ADMIN (KAN-68)
+export const fetchUsers = async (authToken) => {
+  const res = await fetch('/api/v1/users', { headers: authHeaders(authToken) });
   if (!res.ok) {
     throw new Error(`serverul a răspuns cu ${res.status}`);
   }
@@ -209,8 +212,8 @@ export const cancelBooking = async (bookingId, reason, notes, authToken) => {
   }
 };
 
-// Scanare și validare bilet QR (POST /qr/validate)
-export const validateQr = async (token, receptionistId, authToken) => {
+// Scanare și validare bilet QR (POST /qr/validate) – recepționerul este utilizatorul logat (KAN-68)
+export const validateQr = async (token, authToken) => {
   try {
     const res = await fetch('/api/v1/qr/validate', {
       method: 'POST',
@@ -218,7 +221,7 @@ export const validateQr = async (token, receptionistId, authToken) => {
         'Content-Type': 'application/json',
         ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
       },
-      body: JSON.stringify({ token, receptionistId })
+      body: JSON.stringify({ token })
     });
     const data = await res.json().catch(() => ({}));
     return { ok: res.ok, data, status: res.status };
