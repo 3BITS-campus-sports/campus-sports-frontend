@@ -19,8 +19,7 @@ export const fallbackFacilities = [
       location: 'Complex sportiv, corp E',
       program: 'Luni - duminică, 08:00 - 23:00',
       notice: 'Nocturnă LED automată inclusă',
-      beforeVisit: ['Încălțăminte sintetic/tartan', 'Respectă intervalul selectat'],
-      equipmentOptions: [{ name: 'Minge oficială', price: 10 }]
+      beforeVisit: ['Încălțăminte sintetic/tartan', 'Respectă intervalul selectat']
     }
   },
   {
@@ -41,8 +40,7 @@ export const fallbackFacilities = [
       location: 'Baza sportivă campus',
       program: 'Zilnic, 08:00 - 21:00',
       notice: 'Acces doar cu încălțăminte curată',
-      beforeVisit: ['Rachete proprii sau închiriate', 'Respectă durata slotului'],
-      equipmentOptions: [{ name: 'Set 2 rachete', price: 10 }]
+      beforeVisit: ['Rachete proprii sau închiriate', 'Respectă durata slotului']
     }
   },
   {
@@ -63,8 +61,7 @@ export const fallbackFacilities = [
       location: 'Complex sportiv, corp E, parter',
       program: 'Luni - vineri, 06:00 - 21:00',
       notice: 'Rezervările din timp beneficiază de reducere',
-      beforeVisit: ['Cască și ochelari obligatorii', 'Duș obligatoriu înainte'],
-      equipmentOptions: [{ name: 'Ochelari înot', price: 4 }, { name: 'Cască silicon', price: 3 }]
+      beforeVisit: ['Cască și ochelari obligatorii', 'Duș obligatoriu înainte']
     }
   },
   {
@@ -85,8 +82,7 @@ export const fallbackFacilities = [
       location: 'Corp D, demisol',
       program: 'Luni - duminică, 08:00 - 22:00',
       notice: 'Reducere 50% pentru studenții USV',
-      beforeVisit: ['Prosop pe aparate', 'Pantofi sport de schimb'],
-      equipmentOptions: [{ name: 'Prosop sală', price: 3 }]
+      beforeVisit: ['Prosop pe aparate', 'Pantofi sport de schimb']
     }
   },
   {
@@ -107,8 +103,7 @@ export const fallbackFacilities = [
       location: 'Corp E, etaj',
       program: 'Luni - sâmbătă, 08:00 - 21:00',
       notice: 'Timp maxim recomandat: 15 min per repriză',
-      beforeVisit: ['Două prosoape mari', 'Hidratare corespunzătoare'],
-      equipmentOptions: [{ name: 'Prosop saună', price: 5 }]
+      beforeVisit: ['Două prosoape mari', 'Hidratare corespunzătoare']
     }
   }
 ];

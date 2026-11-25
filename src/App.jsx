@@ -11,6 +11,7 @@ import {
   fetchFacilities,
   fetchUsers,
   fetchAvailability,
+  fetchFacilityEquipment,
   createBooking,
   payBooking as apiPayBooking,
   fetchMyBookings,
@@ -116,7 +117,9 @@ export default function App() {
   });
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [availability, setAvailability] = useState({ slots: [], loading: false, error: '' });
-  const [addEquipment, setAddEquipment] = useState(true);
+  // Echipamentul de închiriat al facilității alese (din baza de date) și id-urile bifate (KAN-71)
+  const [facilityEquipment, setFacilityEquipment] = useState([]);
+  const [selectedEquipmentIds, setSelectedEquipmentIds] = useState([]);
   const [booking, setBooking] = useState(null);
   const [bookingRequest, setBookingRequest] = useState({ loading: false, error: '' });
   const [payment, setPayment] = useState({ loading: false, error: '' });
@@ -222,10 +225,7 @@ export default function App() {
       beforeVisit: f.category === 'Înot'
         ? ['Adu echipamentul de înot și papucii.', 'Respectă intervalul rezervat și indicațiile personalului.', 'Pregătește codul rezervării pentru acces.']
         : ['Vino cu echipament sportiv adecvat.', 'Respectă intervalul rezervat și indicațiile personalului.', 'Pregătește codul rezervării pentru acces.'],
-      equipmentTitle: f.category === 'Înot' ? 'Echipament de înot' : 'Echipament',
-      equipmentOptions: f.category === 'Înot'
-        ? [{ name: 'Ochelari de înot', price: 4 }, { name: 'Bonetă de înot', price: 3 }, { name: 'Plută de înot', price: 3 }]
-        : [{ name: 'Echipament sportiv complet', price: 10 }]
+      equipmentTitle: f.category === 'Înot' ? 'Echipament de înot' : 'Echipament'
     }
   })) : fallbackFacilities;
 
@@ -313,9 +313,19 @@ export default function App() {
   };
 
   // ================= REZERVARE & DISPONIBILITATE =================
-  const openFacilityDetails = (facility) => {
+  const openFacilityDetails = async (facility) => {
     setSelectedFacility(facility);
+    setFacilityEquipment([]);
+    setSelectedEquipmentIds([]);
     setCurrentScreen('facility_detail');
+    setFacilityEquipment(await fetchFacilityEquipment(facility.id));
+  };
+
+  const toggleEquipment = (equipmentId) => {
+    setBookingRequest({ loading: false, error: '' });
+    setSelectedEquipmentIds((ids) => (ids.includes(equipmentId)
+      ? ids.filter((id) => id !== equipmentId)
+      : [...ids, equipmentId]));
   };
 
   const loadSlotAvailability = async (facility, isoDate) => {
@@ -355,7 +365,10 @@ export default function App() {
 
   const openSummary = async () => {
     if (!selectedSlot || bookingRequest.loading) return;
+    // Aceeași rezervare se refolosește doar dacă nici echipamentul ales nu s-a schimbat
+    const equipmentKey = [...selectedEquipmentIds].sort((a, b) => a - b).join(',');
     const sameBooking = booking &&
+      booking.equipmentKey === equipmentKey &&
       booking.facility_id === selectedFacility.id &&
       new Date(booking.start_time).getTime() === new Date(selectedSlot.startTime).getTime() &&
       PENDING_STATUSES.includes(booking.status) &&
@@ -373,11 +386,12 @@ export default function App() {
       bookingDate: selectedDate,
       startTime: `${selectedSlot.startLabel}:00`,
       endTime: `${selectedSlot.endLabel}:00`,
-      reminderEnabled
+      reminderEnabled,
+      equipment: selectedEquipmentIds.map((equipmentId) => ({ equipmentId, quantity: 1 }))
     }, authToken);
 
     if (status === 201) {
-      setBooking(body);
+      setBooking({ ...body, equipmentKey });
       setBookingRequest({ loading: false, error: '' });
       setPayment({ loading: false, error: '' });
       setSimulateFailure(false);
@@ -625,6 +639,7 @@ export default function App() {
         {currentScreen === 'facility_detail' && selectedFacility && (
           <FacilityDetailScreen
             selectedFacility={selectedFacility}
+            facilityEquipment={facilityEquipment}
             onBack={() => setCurrentScreen('facilities')}
             onChooseDateTime={openChooseDateTime}
             onOpenHelp={() => setShowHelpModal(true)}
@@ -640,8 +655,9 @@ export default function App() {
             selectedDate={selectedDate}
             selectedSlot={selectedSlot}
             availability={availability}
-            addEquipment={addEquipment}
-            setAddEquipment={setAddEquipment}
+            facilityEquipment={facilityEquipment}
+            selectedEquipmentIds={selectedEquipmentIds}
+            onToggleEquipment={toggleEquipment}
             bookingRequest={bookingRequest}
             onBack={() => setCurrentScreen('facility_detail')}
             onChangeCalendarMonth={changeCalendarMonth}

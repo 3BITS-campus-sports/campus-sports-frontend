@@ -13,6 +13,7 @@ import { formatAmount } from '../constants/dateTimeHelpers';
 
 export default function FacilityDetailScreen({
   selectedFacility,
+  facilityEquipment = [],
   onBack,
   onChooseDateTime,
   onOpenHelp,
@@ -75,18 +76,21 @@ export default function FacilityDetailScreen({
         ))}
       </section>
 
-      <section className="sc-panel sc-panel-tight">
-        <h3 className="sc-panel-title">{selectedFacility.usefulInfo.equipmentTitle || 'Echipament'} (opțional)</h3>
-        {selectedFacility.usefulInfo.equipmentOptions.map((item, index) => (
-          <React.Fragment key={item.name}>
-            {index > 0 && <hr className="sc-separator" />}
-            <div className="sc-equipment-row">
-              <span>{item.name}</span>
-              <strong>{formatAmount(item.price)} RON</strong>
-            </div>
-          </React.Fragment>
-        ))}
-      </section>
+      {/* Echipamentul de închiriat vine din baza de date (KAN-71); fără echipament, secțiunea nu apare */}
+      {facilityEquipment.length > 0 && (
+        <section className="sc-panel sc-panel-tight">
+          <h3 className="sc-panel-title">{selectedFacility.usefulInfo.equipmentTitle || 'Echipament'} (opțional)</h3>
+          {facilityEquipment.map((item, index) => (
+            <React.Fragment key={item.equipmentId}>
+              {index > 0 && <hr className="sc-separator" />}
+              <div className="sc-equipment-row">
+                <span>{item.name}</span>
+                <strong>{formatAmount(item.hourlyFee)} RON / oră</strong>
+              </div>
+            </React.Fragment>
+          ))}
+        </section>
+      )}
 
       <section className="sc-contact-box">
         <div className="sc-contact-row">

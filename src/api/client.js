@@ -117,6 +117,18 @@ export const fetchFacilities = async () => {
 // Antetul Authorization pentru cererile care cer autentificare
 export const authHeaders = (authToken) => (authToken ? { Authorization: `Bearer ${authToken}` } : {});
 
+// Echipamentele de închiriat pentru o facilitate (GET /facilities/:id/equipment, KAN-71)
+export const fetchFacilityEquipment = async (facilityId) => {
+  try {
+    const res = await fetch(`/api/v1/facilities/${facilityId}/equipment`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+};
+
 // Încărcare utilizatori Admin (GET /users) – doar pentru rolul ADMIN (KAN-68)
 export const fetchUsers = async (authToken) => {
   const res = await fetch('/api/v1/users', { headers: authHeaders(authToken) });
@@ -146,7 +158,7 @@ export const fetchAvailability = async (facilityId, isoDate, authToken) => {
 };
 
 // Inițiere rezervare cu blocare de 5 minute (POST /bookings)
-export const createBooking = async ({ facilityId, bookingDate, startTime, endTime, reminderEnabled }, authToken) => {
+export const createBooking = async ({ facilityId, bookingDate, startTime, endTime, reminderEnabled, equipment = [] }, authToken) => {
   try {
     const res = await fetch('/api/v1/bookings', {
       method: 'POST',
@@ -154,7 +166,7 @@ export const createBooking = async ({ facilityId, bookingDate, startTime, endTim
         'Content-Type': 'application/json',
         ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
       },
-      body: JSON.stringify({ facilityId, bookingDate, startTime, endTime, reminderEnabled })
+      body: JSON.stringify({ facilityId, bookingDate, startTime, endTime, reminderEnabled, equipment })
     });
     const body = await res.json().catch(() => ({}));
     return { status: res.status, body };

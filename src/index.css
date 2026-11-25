@@ -1610,6 +1610,13 @@ body.dark .sc-nav-tab.active span:last-child { color: var(--sc-lime); }
 }
 .sc-warning-title img { width: 22px; height: 22px; flex-shrink: 0; }
 
+/* Lista de echipamente de închiriat (KAN-71): câte o bifă pe rând */
+.sc-equipment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 /* Bifa pentru echipament: aceeași căsuță ca la Creare cont */
 .sc-equipment-toggle {
   display: flex;
