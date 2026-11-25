@@ -70,8 +70,9 @@ export const requestLogin = async (email, password) => {
   }
 };
 
-// Înregistrare cont student (Figma 02 / POST /auth/register)
-export const requestRegister = async ({ fullName, email, password, roleType = 'STUDENT' }) => {
+// Înregistrare cont (Figma 02 / POST /auth/register): rol, telefon și, pentru studenți, matricol și facultate (KAN-69)
+export const requestRegister = async ({ fullName, email, phone, password, roleType, matricolNumber, faculty }) => {
+  const isStudent = roleType === 'STUDENT';
   try {
     const res = await fetch('/api/v1/auth/register', {
       method: 'POST',
@@ -79,17 +80,18 @@ export const requestRegister = async ({ fullName, email, password, roleType = 'S
       body: JSON.stringify({
         fullName: fullName.trim(),
         email: email.trim(),
+        phone: phone.trim(),
         password,
-        roleType
+        roleType,
+        ...(isStudent ? { matricolNumber: matricolNumber.trim(), faculty: faculty.trim() } : {})
       })
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
+      // 409: backend-ul spune dacă emailul sau numărul matricol este deja folosit
       return {
         ok: false,
-        message: res.status === 409
-          ? 'Există deja un cont cu acest email.'
-          : body.error?.message || `Eroare ${res.status}`
+        message: body.error?.message || (res.status === 409 ? 'Există deja un cont cu aceste date.' : `Eroare ${res.status}`)
       };
     }
     return { ok: true };

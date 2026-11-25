@@ -64,7 +64,7 @@ export default function Header({
       {currentScreen === 'register' && (
         <div>
           <h2 className="figma-header-title">Creare cont</h2>
-          <p className="figma-header-desc">Un singur pas. Completează datele de student.</p>
+          <p className="figma-header-desc">Un singur pas. Alege tipul contului și completează datele.</p>
         </div>
       )}
 

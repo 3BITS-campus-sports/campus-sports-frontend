@@ -61,6 +61,11 @@ const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const MIN_PASSWORD_LENGTH = 8;
 const PASSWORD_LETTER = /[A-Za-zĂÂÎȘȚăâîșț]/;
 const PASSWORD_DIGIT = /\d/;
+// Aceleași reguli ca în backend (POST /auth/register, KAN-69)
+const PHONE_CHARS = /^\+?[\d\s().-]+$/;
+const MIN_PHONE_DIGITS = 10;
+const MAX_PHONE_DIGITS = 15;
+const MATRICOL_PATTERN = /^[A-Za-z0-9/.-]{2,40}$/;
 const PENDING_STATUSES = ['INITIATED', 'PENDING_PAYMENT'];
 // Cine vede panoul Admin și ecranul de Recepție (aceleași reguli ca în backend, KAN-68)
 const ADMIN_ROLES = ['ADMIN'];
@@ -253,6 +258,21 @@ export default function App() {
     const errors = {};
     if (registerForm.fullName.trim() === '') errors.fullName = 'Completează numele și prenumele';
     if (!EMAIL_PATTERN.test(registerForm.email.trim())) errors.email = 'Introdu o adresă de email validă';
+    const phone = registerForm.phone.trim();
+    const phoneDigits = phone.replace(/\D/g, '').length;
+    if (phone === '') {
+      errors.phone = 'Completează numărul de telefon';
+    } else if (!PHONE_CHARS.test(phone) || phoneDigits < MIN_PHONE_DIGITS || phoneDigits > MAX_PHONE_DIGITS) {
+      errors.phone = `Telefonul trebuie să aibă între ${MIN_PHONE_DIGITS} și ${MAX_PHONE_DIGITS} cifre`;
+    }
+    if (registerForm.roleType === 'STUDENT') {
+      if (registerForm.matricolNumber.trim() === '') {
+        errors.matricolNumber = 'Completează numărul matricol';
+      } else if (!MATRICOL_PATTERN.test(registerForm.matricolNumber.trim())) {
+        errors.matricolNumber = 'Folosește doar litere, cifre, „/”, „-” sau „.” (2–40 de caractere)';
+      }
+      if (registerForm.faculty.trim().length < 3) errors.faculty = 'Completează facultatea';
+    }
     if (registerForm.password.length < MIN_PASSWORD_LENGTH) {
       errors.password = `Parola trebuie să aibă minimum ${MIN_PASSWORD_LENGTH} caractere`;
     } else if (!PASSWORD_LETTER.test(registerForm.password) || !PASSWORD_DIGIT.test(registerForm.password)) {
@@ -269,12 +289,7 @@ export default function App() {
     if (Object.keys(errors).length > 0) return;
 
     setAuthSubmitting(true);
-    const res = await requestRegister({
-      fullName: registerForm.fullName,
-      email: registerForm.email,
-      password: registerForm.password,
-      roleType: 'STUDENT'
-    });
+    const res = await requestRegister(registerForm);
 
     if (!res.ok) {
       setRegisterErrors({ general: res.message });

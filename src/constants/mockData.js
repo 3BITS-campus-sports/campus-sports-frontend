@@ -121,8 +121,12 @@ export const campusPins = [
 ];
 
 export const emptyRegisterForm = {
+  roleType: 'STUDENT',
   fullName: '',
   email: '',
+  phone: '',
+  matricolNumber: '',
+  faculty: '',
   password: '',
   acceptedTerms: false
 };

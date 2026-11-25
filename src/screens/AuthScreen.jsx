@@ -6,6 +6,25 @@ import {
   iconCheck
 } from '../constants/figmaAssets';
 
+// Rolurile care își pot face singure cont (RECEPTIONIST și ADMIN le creează administratorul) – KAN-69
+const REGISTER_ROLES = [
+  { value: 'STUDENT', label: 'Student' },
+  { value: 'PROFESSOR', label: 'Profesor' },
+  { value: 'AMATEUR', label: 'Amator' }
+];
+
+const EMAIL_LABELS = {
+  STUDENT: 'Email de student',
+  PROFESSOR: 'Email instituțional',
+  AMATEUR: 'Email'
+};
+
+const EMAIL_PLACEHOLDERS = {
+  STUDENT: 'ana.popescu@stud.univ.ro',
+  PROFESSOR: 'ana.popescu@univ.ro',
+  AMATEUR: 'ana.popescu@email.ro'
+};
+
 export default function AuthScreen({
   mode = 'login',
   loginForm,
@@ -104,6 +123,24 @@ export default function AuthScreen({
           </div>
         )}
 
+        <div className="sc-field">
+          <span className="sc-label" id="register-role-label">Cont de</span>
+          <div className="sc-role-options" role="radiogroup" aria-labelledby="register-role-label">
+            {REGISTER_ROLES.map((role) => (
+              <button
+                key={role.value}
+                type="button"
+                role="radio"
+                aria-checked={registerForm.roleType === role.value}
+                className={`sc-role-option ${registerForm.roleType === role.value ? 'active' : ''}`}
+                onClick={() => setRegisterForm({ ...registerForm, roleType: role.value })}
+              >
+                {role.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <label className="sc-field">
           <span className="sc-label">Nume și prenume</span>
           <span className={`sc-input ${registerErrors.fullName ? 'error' : ''}`}>
@@ -119,18 +156,66 @@ export default function AuthScreen({
         </label>
 
         <label className="sc-field">
-          <span className="sc-label">Email de student</span>
+          <span className="sc-label">{EMAIL_LABELS[registerForm.roleType] || 'Email'}</span>
           <span className={`sc-input ${registerErrors.email ? 'error' : ''}`}>
             <input
               type="email"
               autoComplete="email"
-              placeholder="ana.popescu@stud.univ.ro"
+              placeholder={EMAIL_PLACEHOLDERS[registerForm.roleType] || EMAIL_PLACEHOLDERS.AMATEUR}
               value={registerForm.email}
               onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
             />
           </span>
           {registerErrors.email && <span className="sc-field-error">{registerErrors.email}</span>}
         </label>
+
+        <label className="sc-field">
+          <span className="sc-label">Telefon</span>
+          <span className={`sc-input ${registerErrors.phone ? 'error' : ''}`}>
+            <input
+              type="tel"
+              autoComplete="tel"
+              inputMode="tel"
+              placeholder="0722 123 456"
+              value={registerForm.phone}
+              onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })}
+            />
+          </span>
+          {registerErrors.phone && <span className="sc-field-error">{registerErrors.phone}</span>}
+        </label>
+
+        {/* Numărul matricol și facultatea se cer doar studenților */}
+        {registerForm.roleType === 'STUDENT' && (
+          <>
+            <label className="sc-field">
+              <span className="sc-label">Număr matricol</span>
+              <span className={`sc-input ${registerErrors.matricolNumber ? 'error' : ''}`}>
+                <input
+                  type="text"
+                  autoComplete="off"
+                  placeholder="ex. 1234/2023"
+                  value={registerForm.matricolNumber}
+                  onChange={(e) => setRegisterForm({ ...registerForm, matricolNumber: e.target.value })}
+                />
+              </span>
+              {registerErrors.matricolNumber && <span className="sc-field-error">{registerErrors.matricolNumber}</span>}
+            </label>
+
+            <label className="sc-field">
+              <span className="sc-label">Facultate</span>
+              <span className={`sc-input ${registerErrors.faculty ? 'error' : ''}`}>
+                <input
+                  type="text"
+                  autoComplete="organization"
+                  placeholder="ex. Inginerie Electrică și Știința Calculatoarelor"
+                  value={registerForm.faculty}
+                  onChange={(e) => setRegisterForm({ ...registerForm, faculty: e.target.value })}
+                />
+              </span>
+              {registerErrors.faculty && <span className="sc-field-error">{registerErrors.faculty}</span>}
+            </label>
+          </>
+        )}
 
         <label className="sc-field">
           <span className="sc-label">Parolă</span>
